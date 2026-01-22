@@ -1,37 +1,48 @@
 <?php
-declare(strict_types=1);
 
 namespace App\Core;
 
-final class Request
+class Request
 {
     private array $get;
     private array $post;
-    private array $cookies;
-    private array $files;
     private array $server;
-    private array $headers;
+    private array $files;
 
     public function __construct()
     {
-        $this->get     = $_GET;
-        $this->post    = $_POST;
-        $this->cookies = $_COOKIE;
-        $this->files   = $_FILES;
-        $this->server  = $_SERVER;
-        $this->headers = $this->parseHeaders();
+        $this->get = $this->sanitize($_GET);
+        $this->post = $this->sanitize($_POST);
+        $this->server = $_SERVER;
+        $this->files = $_FILES;
     }
 
-    private function parseHeaders(): array
+    private function sanitize(array $data): array
     {
-        $headers = [];
-        foreach ($this->server as $key => $value) {
-            if (str_starts_with($key, 'HTTP_')) {
-                $name = str_replace('_', '-', substr($key, 5));
-                $headers[strtolower($name)] = $value;
+        $sanitized = [];
+        foreach ($data as $key => $value) {
+            if (is_array($value)) {
+                $sanitized[$key] = $this->sanitize($value);
+            } else {
+                $sanitized[$key] = htmlspecialchars(trim($value), ENT_QUOTES, 'UTF-8');
             }
         }
-        return $headers;
+        return $sanitized;
+    }
+
+    public function get(string $key, $default = null)
+    {
+        return $this->get[$key] ?? $default;
+    }
+
+    public function post(string $key, $default = null)
+    {
+        return $this->post[$key] ?? $default;
+    }
+
+    public function all(): array
+    {
+        return array_merge($this->get, $this->post);
     }
 
     public function method(): string
@@ -41,77 +52,32 @@ final class Request
 
     public function uri(): string
     {
-        return strtok($this->server['REQUEST_URI'] ?? '/', '?');
-    }
-
-    public function input(string $key, mixed $default = null): mixed
-    {
-        return $this->post[$key] ?? $this->get[$key] ?? $default;
-    }
-
-    public function all(): array
-    {
-        return array_merge($this->get, $this->post);
-    }
-
-    public function only(array $keys): array
-    {
-        return array_intersect_key($this->all(), array_flip($keys));
-    }
-
-    public function cookie(string $key, mixed $default = null): mixed
-    {
-        return $this->cookies[$key] ?? $default;
-    }
-
-    public function file(string $key): ?array
-    {
-        return $this->files[$key] ?? null;
-    }
-
-    public function hasFile(string $key): bool
-    {
-        return isset($this->files[$key]) && $this->files[$key]['error'] === UPLOAD_ERR_OK;
-    }
-
-    public function header(string $key, mixed $default = null): mixed
-    {
-        return $this->headers[strtolower($key)] ?? $default;
+        $uri = $this->server['REQUEST_URI'] ?? '/';
+        return strtok($uri, '?');
     }
 
     public function ip(): string
     {
-        return $this->header('x-forwarded-for', $this->server['REMOTE_ADDR'] ?? '0.0.0.0');
+        return $this->server['REMOTE_ADDR'] ?? '0.0.0.0';
     }
 
     public function userAgent(): string
     {
-        return $this->header('user-agent', '');
+        return $this->server['HTTP_USER_AGENT'] ?? '';
     }
 
-    public function isAjax(): bool
+    public function isPost(): bool
     {
-        return $this->header('x-requested-with') === 'XMLHttpRequest';
+        return $this->method() === 'POST';
     }
 
-    public function validate(array $rules): array
+    public function isGet(): bool
     {
-        $errors = [];
-        foreach ($rules as $field => $rule) {
-            $value = $this->input($field);
-            if (str_contains($rule, 'required') && empty($value)) {
-                $errors[$field][] = "$field is required";
-            }
-            if (str_contains($rule, 'email') && !filter_var($value, FILTER_VALIDATE_EMAIL)) {
-                $errors[$field][] = "$field must be a valid email";
-            }
-            if (preg_match('/max:(\d+)/', $rule, $m) && strlen((string)$value) > (int)$m[1]) {
-                $errors[$field][] = "$field must be max {$m[1]} characters";
-            }
-            if (preg_match('/min:(\d+)/', $rule, $m) && strlen((string)$value) < (int)$m[1]) {
-                $errors[$field][] = "$field must be min {$m[1]} characters";
-            }
-        }
-        return $errors;
+        return $this->method() === 'GET';
+    }
+
+    public function file(string $key)
+    {
+        return $this->files[$key] ?? null;
     }
 }

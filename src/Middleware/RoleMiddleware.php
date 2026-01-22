@@ -1,25 +1,82 @@
 <?php
-declare(strict_types=1);
 
 namespace App\Middleware;
 
-use App\Core\{Request, Response, Session};
+use App\Core\Request;
+use App\Core\Response;
+use App\Core\Session;
 
-final class RoleMiddleware
+class RoleMiddleware
 {
-    private array $roles;
+    private Session $session;
+    private array $allowedRoles;
 
-    public function __construct(array $roles)
+    public function __construct(array $allowedRoles = [])
     {
-        $this->roles = $roles;
+        $this->session = new Session();
+        $this->allowedRoles = $allowedRoles;
     }
 
-    public function handle(Request $req, callable $next): mixed
+    public function handle(Request $request, Response $response): void
     {
-        $userRole = Session::get('rol');
-        if (!in_array($userRole, $this->roles, true)) {
-            (new Response())->status(403)->text('Forbidden');
+        if (!$this->session->has('user_id')) {
+            $response->redirect('/login');
+            exit;
         }
-        return $next($req);
+
+        $userRole = $this->session->get('user_rol');
+
+        if ($userRole === 'super_admin') {
+            return;
+        }
+
+        if (!empty($this->allowedRoles) && !in_array($userRole, $this->allowedRoles)) {
+            $response->error('Acceso denegado', 403);
+            exit;
+        }
+    }
+
+    public static function can(string $permission): bool
+    {
+        $session = new Session();
+        
+        if (!$session->has('user_rol')) {
+            return false;
+        }
+
+        $role = $session->get('user_rol');
+
+        $permissions = [
+            'super_admin' => ['*'],
+            'admin_empresa' => [
+                'controles.view', 'controles.edit',
+                'gaps.view', 'gaps.create', 'gaps.edit', 'gaps.delete',
+                'evidencias.view', 'evidencias.upload', 'evidencias.delete',
+                'usuarios.view', 'usuarios.create', 'usuarios.edit',
+                'requerimientos.view', 'dashboard.view'
+            ],
+            'auditor' => [
+                'controles.view',
+                'gaps.view',
+                'evidencias.view', 'evidencias.validate',
+                'requerimientos.view', 'dashboard.view'
+            ],
+            'consultor' => [
+                'controles.view',
+                'gaps.view', 'gaps.create', 'gaps.edit',
+                'evidencias.view', 'evidencias.upload',
+                'requerimientos.view', 'dashboard.view'
+            ]
+        ];
+
+        if (!isset($permissions[$role])) {
+            return false;
+        }
+
+        if (in_array('*', $permissions[$role])) {
+            return true;
+        }
+
+        return in_array($permission, $permissions[$role]);
     }
 }

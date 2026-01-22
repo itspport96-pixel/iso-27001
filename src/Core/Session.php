@@ -1,99 +1,105 @@
 <?php
-declare(strict_types=1);
 
 namespace App\Core;
 
-final class Session
+class Session
 {
     private static bool $started = false;
+    private array $config;
 
-    public static function start(bool $allowRegenerate = true): void
+    public function __construct()
     {
-        if (self::$started || session_status() === PHP_SESSION_ACTIVE) {
+        $this->config = require __DIR__ . '/../../config/session.php';
+        $this->start();
+    }
+
+    private function start(): void
+    {
+        if (self::$started) {
             return;
         }
-        $cfg = require __DIR__ . '/../../config/security.php';
-        ini_set('session.gc_maxlifetime', (string)($cfg['session_lifetime'] * 60));
-        ini_set('session.cookie_httponly', '1');
-        ini_set('session.cookie_secure', isset($_SERVER['HTTPS']));
-        ini_set('session.cookie_samesite', 'Strict');
-        ini_set('session.use_strict_mode', '1');
-        ini_set('session.use_cookies', '1');
-        ini_set('session.use_only_cookies', '1');
-        ini_set('session.save_path', $_ENV['SESSION_PATH'] ?? __DIR__ . '/../../storage/sessions');
-        session_name('ISOSESSID');
+
+        ini_set('session.save_path', $this->config['path']);
+        ini_set('session.gc_probability', $this->config['gc_probability']);
+        ini_set('session.gc_divisor', $this->config['gc_divisor']);
+        ini_set('session.gc_maxlifetime', $this->config['gc_maxlifetime']);
+
+        session_set_cookie_params([
+            'lifetime' => $this->config['cookie']['lifetime'],
+            'path' => $this->config['cookie']['path'],
+            'domain' => $this->config['cookie']['domain'],
+            'secure' => $this->config['cookie']['secure'],
+            'httponly' => $this->config['cookie']['httponly'],
+            'samesite' => $this->config['cookie']['samesite']
+        ]);
+
+        session_name($this->config['name']);
         session_start();
         self::$started = true;
-        if ($allowRegenerate) {
-            self::regenerateIfNeeded();
+
+        $this->validateFingerprint();
+    }
+
+    private function validateFingerprint(): void
+    {
+        $fingerprint = $this->generateFingerprint();
+        
+        if (!$this->has('_fingerprint')) {
+            $this->set('_fingerprint', $fingerprint);
+        } elseif ($this->get('_fingerprint') !== $fingerprint) {
+            $this->destroy();
+            session_start();
+            $this->set('_fingerprint', $fingerprint);
         }
     }
 
-    public static function regenerate(): void
+    private function generateFingerprint(): string
     {
-        session_regenerate_id(true);
-        $_SESSION['last_regeneration'] = time();
+        $request = new Request();
+        return hash('sha256', $request->userAgent() . $request->ip());
     }
 
-    private static function regenerateIfNeeded(): void
+    public function set(string $key, $value): void
     {
-        $ttl = 60 * 30; // 30 min
-        if (!isset($_SESSION['last_regeneration']) || $_SESSION['last_regeneration'] < time() - $ttl) {
-            self::regenerate();
-        }
-    }
-
-    public static function put(string $key, mixed $value): void
-    {
-        self::start();
         $_SESSION[$key] = $value;
     }
 
-    public static function get(string $key, mixed $default = null): mixed
+    public function get(string $key, $default = null)
     {
-        self::start();
         return $_SESSION[$key] ?? $default;
     }
 
-    public static function pull(string $key, mixed $default = null): mixed
+    public function has(string $key): bool
     {
-        self::start();
-        $value = $_SESSION[$key] ?? $default;
-        unset($_SESSION[$key]);
-        return $value;
+        return isset($_SESSION[$key]);
     }
 
-    public static function forget(string $key): void
+    public function remove(string $key): void
     {
-        self::start();
         unset($_SESSION[$key]);
     }
 
-    public static function flush(): void
+    public function destroy(): void
     {
-        self::start();
-        session_unset();
         session_destroy();
         self::$started = false;
     }
 
-    public static function token(): string
+    public function regenerate(): void
     {
-        self::start();
-        if (!isset($_SESSION['_token'])) {
-            $_SESSION['_token'] = bin2hex(random_bytes(32));
-        }
-        return $_SESSION['_token'];
+        session_regenerate_id(true);
+        $this->set('_fingerprint', $this->generateFingerprint());
     }
 
-    public static function fingerprint(string $ip, string $ua): bool
+    public function flash(string $key, $value): void
     {
-        self::start();
-        $hash = md5($ip . '|' . $ua);
-        if (!isset($_SESSION['_fingerprint'])) {
-            $_SESSION['_fingerprint'] = $hash;
-            return true;
-        }
-        return hash_equals($_SESSION['_fingerprint'], $hash);
+        $this->set('_flash_' . $key, $value);
+    }
+
+    public function getFlash(string $key, $default = null)
+    {
+        $value = $this->get('_flash_' . $key, $default);
+        $this->remove('_flash_' . $key);
+        return $value;
     }
 }

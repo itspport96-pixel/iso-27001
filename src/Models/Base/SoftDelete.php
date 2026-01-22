@@ -1,32 +1,95 @@
 <?php
-declare(strict_types=1);
 
 namespace App\Models\Base;
 
 trait SoftDelete
 {
-    public static function findActive(int $id, int $empresaId): ?static
+    public function restore(int $id): bool
     {
-        $sql = 'SELECT * FROM ' . static::$table . ' WHERE ' . static::$primaryKey . ' = :id AND empresa_id = :empresa_id AND deleted_at IS NULL LIMIT 1';
-        $stmt = self::db()->prepare($sql);
-        $stmt->execute(['id' => $id, 'empresa_id' => $empresaId]);
-        $data = $stmt->fetch();
-        return $data ? self::hydrate($data) : null;
+        $sql = "UPDATE {$this->table} SET deleted_at = NULL WHERE {$this->primaryKey} = :id";
+        
+        if ($this->usesTenant) {
+            $tenantId = \App\Core\TenantContext::getInstance()->getTenant();
+            $sql .= " AND empresa_id = :empresa_id";
+        }
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->bindValue(':id', $id, \PDO::PARAM_INT);
+        
+        if ($this->usesTenant) {
+            $stmt->bindValue(':empresa_id', $tenantId, \PDO::PARAM_INT);
+        }
+        
+        return $stmt->execute();
     }
 
-    public static function allActive(int $empresaId, int $limit = 100, int $offset = 0): array
+    public function forceDelete(int $id): bool
     {
-        $sql = 'SELECT * FROM ' . static::$table . ' WHERE empresa_id = :empresa_id AND deleted_at IS NULL ORDER BY ' . static::$primaryKey . ' DESC LIMIT :limit OFFSET :offset';
-        $stmt = self::db()->prepare($sql);
-        $stmt->bindValue(':empresa_id', $empresaId, \PDO::PARAM_INT);
-        $stmt->bindValue(':limit', $limit, \PDO::PARAM_INT);
-        $stmt->bindValue(':offset', $offset, \PDO::PARAM_INT);
+        $sql = "DELETE FROM {$this->table} WHERE {$this->primaryKey} = :id";
+        
+        if ($this->usesTenant) {
+            $tenantId = \App\Core\TenantContext::getInstance()->getTenant();
+            $sql .= " AND empresa_id = :empresa_id";
+        }
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->bindValue(':id', $id, \PDO::PARAM_INT);
+        
+        if ($this->usesTenant) {
+            $stmt->bindValue(':empresa_id', $tenantId, \PDO::PARAM_INT);
+        }
+        
+        return $stmt->execute();
+    }
+
+    public function findWithTrashed(int $id): ?array
+    {
+        $sql = "SELECT * FROM {$this->table} WHERE {$this->primaryKey} = :id";
+        
+        if ($this->usesTenant) {
+            $tenantId = \App\Core\TenantContext::getInstance()->getTenant();
+            $sql .= " AND empresa_id = :empresa_id";
+        }
+        
+        $sql .= " LIMIT 1";
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->bindValue(':id', $id, \PDO::PARAM_INT);
+        
+        if ($this->usesTenant) {
+            $stmt->bindValue(':empresa_id', $tenantId, \PDO::PARAM_INT);
+        }
+        
         $stmt->execute();
-        return array_map(fn($row) => self::hydrate($row), $stmt->fetchAll());
+        $result = $stmt->fetch(\PDO::FETCH_ASSOC);
+        
+        return $result ?: null;
     }
 
-    public static function softDelete(int $id, int $empresaId): int
+    public function onlyTrashed(array $conditions = []): array
     {
-        return self::update($id, $empresaId, ['deleted_at' => date('Y-m-d H:i:s')]);
+        $sql = "SELECT * FROM {$this->table} WHERE deleted_at IS NOT NULL";
+        $params = [];
+        
+        if ($this->usesTenant) {
+            $tenantId = \App\Core\TenantContext::getInstance()->getTenant();
+            $sql .= " AND empresa_id = :empresa_id";
+            $params[':empresa_id'] = $tenantId;
+        }
+        
+        foreach ($conditions as $field => $value) {
+            $sql .= " AND {$field} = :{$field}";
+            $params[":{$field}"] = $value;
+        }
+        
+        $stmt = $this->db->prepare($sql);
+        
+        foreach ($params as $key => $value) {
+            $stmt->bindValue($key, $value);
+        }
+        
+        $stmt->execute();
+        
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
     }
 }

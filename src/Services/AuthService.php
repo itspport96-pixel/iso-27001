@@ -1,60 +1,235 @@
 <?php
-declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Core\{Database, Session};
-use App\Repositories\UsuarioRepository;
+use App\Models\Usuario;
+use App\Models\Empresa;
+use App\Core\Session;
+use App\Core\TenantContext;
+use App\Core\Database;
 
-final class AuthService
+class AuthService
 {
-    private UsuarioRepository $repo;
+    private Session $session;
+    private LogService $log;
 
     public function __construct()
     {
-        $this->repo = new UsuarioRepository();
+        $this->session = new Session();
+        $this->log = new LogService();
     }
 
-    public function hashPassword(string $plain): string
+    public function register(array $empresaData, array $usuarioData): array
     {
-        return password_hash($plain, PASSWORD_ARGON2ID, ['cost' => 12]);
-    }
-
-    public function verifyPassword(string $plain, string $hash): bool
-    {
-        return password_verify($plain, $hash);
-    }
-
-    public function login(string $email, string $password, int $empresaId): ?array
-    {
-        $user = $this->repo->findByEmail($email, $empresaId);
-        if ($user && $this->verifyPassword($password, $user['password_hash'])) {
-            Session::put('user_id', (int)$user['id']);
-            Session::put('empresa_id', $empresaId);
-            Session::put('rol', $user['rol']);
-            Session::regenerate();
-            return $user;
+        $db = Database::getInstance()->getConnection();
+        
+        try {
+            $db->beginTransaction();
+            
+            // Validar RUC único
+            $empresaModel = new Empresa();
+            if ($empresaModel->rucExists($empresaData['ruc'])) {
+                throw new \Exception('El RUC ya está registrado');
+            }
+            
+            // Crear empresa
+            $empresaId = $empresaModel->create([
+                'nombre' => $empresaData['nombre'],
+                'ruc' => $empresaData['ruc'],
+                'contacto' => $empresaData['contacto'] ?? null,
+                'telefono' => $empresaData['telefono'] ?? null,
+                'email' => $empresaData['email'] ?? null,
+                'direccion' => $empresaData['direccion'] ?? null
+            ]);
+            
+            if (!$empresaId) {
+                throw new \Exception('Error al crear empresa');
+            }
+            
+            // Establecer contexto de tenant
+            TenantContext::getInstance()->setTenant($empresaId);
+            
+            // Crear usuario admin
+            $usuarioModel = new Usuario();
+            $usuarioId = $usuarioModel->create([
+                'nombre' => $usuarioData['nombre'],
+                'email' => $usuarioData['email'],
+                'password_hash' => password_hash($usuarioData['password'], PASSWORD_ARGON2ID),
+                'rol' => 'admin_empresa',
+                'estado' => 'activo'
+            ]);
+            
+            if (!$usuarioId) {
+                throw new \Exception('Error al crear usuario');
+            }
+            
+            // Crear SOA entries iniciales para todos los controles
+            $stmt = $db->prepare("
+                INSERT INTO soa_entries (empresa_id, control_id, aplicable, estado, created_at, updated_at)
+                SELECT :empresa_id, id, 1, 'no_implementado', NOW(), NOW()
+                FROM controles
+            ");
+            $stmt->execute([':empresa_id' => $empresaId]);
+            
+            // Crear empresa_requerimientos iniciales
+            $stmt = $db->prepare("
+                INSERT INTO empresa_requerimientos (empresa_id, requerimiento_id, estado, created_at, updated_at)
+                SELECT :empresa_id, id, 'pendiente', NOW(), NOW()
+                FROM requerimientos_base
+            ");
+            $stmt->execute([':empresa_id' => $empresaId]);
+            
+            $db->commit();
+            
+            $this->log->info('Registro exitoso', [
+                'empresa_id' => $empresaId,
+                'usuario_id' => $usuarioId,
+                'ruc' => $empresaData['ruc']
+            ]);
+            
+            return [
+                'success' => true,
+                'empresa_id' => $empresaId,
+                'usuario_id' => $usuarioId
+            ];
+            
+        } catch (\Exception $e) {
+            $db->rollBack();
+            
+            $this->log->error('Error en registro', [
+                'error' => $e->getMessage()
+            ]);
+            
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
         }
-        return null;
+    }
+
+    public function loginByEmail(string $email, string $password): array
+    {
+        try {
+            $db = Database::getInstance()->getConnection();
+            
+            // Buscar usuario por email en todas las empresas
+            $sql = "SELECT * FROM usuarios WHERE email = :email AND deleted_at IS NULL LIMIT 1";
+            $stmt = $db->prepare($sql);
+            $stmt->bindValue(':email', $email);
+            $stmt->execute();
+            
+            $usuario = $stmt->fetch(\PDO::FETCH_ASSOC);
+            
+            if (!$usuario) {
+                $this->log->security('Login fallido - usuario no existe', [
+                    'email' => $email
+                ]);
+                
+                return ['success' => false, 'error' => 'Credenciales inválidas'];
+            }
+            
+            // Establecer contexto de tenant
+            TenantContext::getInstance()->setTenant($usuario['empresa_id']);
+            
+            // Verificar si está bloqueado
+            if ($usuario['bloqueado_hasta'] && strtotime($usuario['bloqueado_hasta']) > time()) {
+                $this->log->security('Login bloqueado', [
+                    'usuario_id' => $usuario['id'],
+                    'bloqueado_hasta' => $usuario['bloqueado_hasta']
+                ]);
+                
+                return ['success' => false, 'error' => 'Usuario bloqueado temporalmente'];
+            }
+            
+            // Verificar estado
+            if ($usuario['estado'] !== 'activo') {
+                return ['success' => false, 'error' => 'Usuario inactivo'];
+            }
+            
+            // Verificar password
+            if (!password_verify($password, $usuario['password_hash'])) {
+                // Incrementar intentos
+                $usuarioModel = new Usuario();
+                $usuarioModel->incrementLoginAttempts($usuario['id']);
+                
+                $intentos = $usuario['intentos_login'] + 1;
+                
+                if ($intentos >= 5) {
+                    $usuarioModel->blockUser($usuario['id'], 15);
+                    $this->log->security('Usuario bloqueado por intentos', [
+                        'usuario_id' => $usuario['id']
+                    ]);
+                    
+                    return ['success' => false, 'error' => 'Usuario bloqueado por 15 minutos'];
+                }
+                
+                $this->log->security('Login fallido - password incorrecta', [
+                    'usuario_id' => $usuario['id'],
+                    'intentos' => $intentos
+                ]);
+                
+                return ['success' => false, 'error' => 'Credenciales inválidas'];
+            }
+            
+            // Login exitoso
+            $usuarioModel = new Usuario();
+            $usuarioModel->resetLoginAttempts($usuario['id']);
+            $usuarioModel->updateLastAccess($usuario['id']);
+            
+            // Crear sesión
+            $this->session->regenerate();
+            $this->session->set('user_id', $usuario['id']);
+            $this->session->set('user_email', $usuario['email']);
+            $this->session->set('user_nombre', $usuario['nombre']);
+            $this->session->set('user_rol', $usuario['rol']);
+            $this->session->set('empresa_id', $usuario['empresa_id']);
+            $this->session->set('last_activity', time());
+            
+            $this->log->info('Login exitoso', [
+                'usuario_id' => $usuario['id'],
+                'empresa_id' => $usuario['empresa_id']
+            ]);
+            
+            return ['success' => true];
+            
+        } catch (\Exception $e) {
+            $this->log->error('Error en login', [
+                'error' => $e->getMessage()
+            ]);
+            
+            return ['success' => false, 'error' => 'Error interno'];
+        }
     }
 
     public function logout(): void
     {
-        Session::flush();
+        $userId = $this->session->get('user_id');
+        
+        $this->log->info('Logout', [
+            'usuario_id' => $userId
+        ]);
+        
+        $this->session->destroy();
+        TenantContext::getInstance()->clearTenant();
     }
 
     public function check(): bool
     {
-        return Session::get('user_id') !== null;
+        return $this->session->has('user_id') && $this->session->has('empresa_id');
     }
 
     public function user(): ?array
     {
-        $id = Session::get('user_id');
-        $empresaId = Session::get('empresa_id');
-        if (!$id || !$empresaId) {
+        if (!$this->check()) {
             return null;
         }
-        return $this->repo->findById((int)$id, (int)$empresaId);
+        
+        return [
+            'id' => $this->session->get('user_id'),
+            'email' => $this->session->get('user_email'),
+            'nombre' => $this->session->get('user_nombre'),
+            'rol' => $this->session->get('user_rol'),
+            'empresa_id' => $this->session->get('empresa_id')
+        ];
     }
 }

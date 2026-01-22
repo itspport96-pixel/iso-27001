@@ -1,42 +1,23 @@
 <?php
-declare(strict_types=1);
 
 namespace App\Core;
 
 use PDO;
 use PDOException;
 
-final class Database
+class Database
 {
-    private static ?self $instance = null;
-    private PDO $connection;
+    private static ?Database $instance = null;
+    private ?PDO $connection = null;
+    private array $config;
 
     private function __construct()
     {
-        $cfg = require __DIR__ . '/../../config/database.php';
-        $dsn = sprintf(
-            '%s:host=%s;port=%d;dbname=%s;charset=%s',
-            $cfg['driver'],
-            $cfg['host'],
-            $cfg['port'],
-            $cfg['database'],
-            $cfg['charset']
-        );
-        try {
-            $this->connection = new PDO(
-                $dsn,
-                $cfg['username'],
-                $cfg['password'],
-                $cfg['options']
-            );
-        } catch (PDOException $e) {
-            error_log('DB connection failed: ' . $e->getMessage());
-            http_response_code(500);
-            exit('Database connection error');
-        }
+        $this->config = require __DIR__ . '/../../config/database.php';
+        $this->connect();
     }
 
-    public static function getInstance(): self
+    public static function getInstance(): Database
     {
         if (self::$instance === null) {
             self::$instance = new self();
@@ -44,11 +25,44 @@ final class Database
         return self::$instance;
     }
 
+    private function connect(): void
+    {
+        try {
+            $dsn = sprintf(
+                '%s:host=%s;dbname=%s;charset=%s',
+                $this->config['driver'],
+                $this->config['host'],
+                $this->config['database'],
+                $this->config['charset']
+            );
+
+            $this->connection = new PDO(
+                $dsn,
+                $this->config['username'],
+                $this->config['password'],
+                $this->config['options']
+            );
+        } catch (PDOException $e) {
+            error_log('Database connection error: ' . $e->getMessage());
+            throw new PDOException('Database connection failed');
+        }
+    }
+
     public function getConnection(): PDO
     {
+        if ($this->connection === null) {
+            $this->connect();
+        }
         return $this->connection;
     }
 
-    public function __clone() {}
+    public function query(string $sql, array $params = []): \PDOStatement
+    {
+        $stmt = $this->connection->prepare($sql);
+        $stmt->execute($params);
+        return $stmt;
+    }
+
+    private function __clone() {}
     public function __wakeup() {}
 }

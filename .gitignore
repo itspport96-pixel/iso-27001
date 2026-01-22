@@ -1,6 +1,11 @@
 /vendor/
-.env
-/storage/logs/*
+/.env
+/storage/logs/*.log
 /storage/cache/*
 /storage/sessions/*
 /public/uploads/*
+composer.lock
+.DS_Store
+.idea/
+*.swp
+*~

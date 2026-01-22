@@ -1,29 +1,49 @@
 <?php
-declare(strict_types=1);
 
 namespace App\Core;
 
-final class TenantContext
+class TenantContext
 {
-    private static ?int $empresaId = null;
+    private static ?TenantContext $instance = null;
+    private ?int $tenantId = null;
 
-    public static function setTenant(int $empresaId): void
+    private function __construct() {}
+
+    public static function getInstance(): TenantContext
     {
-        self::$empresaId = $empresaId;
+        if (self::$instance === null) {
+            self::$instance = new self();
+        }
+        return self::$instance;
     }
 
-    public static function getTenant(): ?int
+    public function setTenant(int $tenantId): void
     {
-        return self::$empresaId;
+        $this->tenantId = $tenantId;
     }
 
-    public static function clear(): void
+    public function getTenant(): ?int
     {
-        self::$empresaId = null;
+        return $this->tenantId;
     }
 
-    public static function exists(): bool
+    public function hasTenant(): bool
     {
-        return self::$empresaId !== null;
+        return $this->tenantId !== null;
     }
+
+    public function clearTenant(): void
+    {
+        $this->tenantId = null;
+    }
+
+    public function validateTenant(): void
+    {
+        if (!$this->hasTenant()) {
+            throw new \Exception('No tenant context set');
+        }
+    }
+
+    private function __clone() {}
+    public function __wakeup() {}
 }

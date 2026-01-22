@@ -1,22 +1,52 @@
 <?php
-declare(strict_types=1);
 
 namespace App\Middleware;
 
-use App\Core\{Request, Response, Session};
+use App\Core\Request;
+use App\Core\Response;
+use App\Core\Session;
 
-final class CsrfMiddleware
+class CsrfMiddleware
 {
-    public function handle(Request $req, callable $next): mixed
+    private Session $session;
+
+    public function __construct()
     {
-        error_log("CSRF debug - POST: " . json_encode($req->input()) . " SESSION token: " . (Session::token() ?? "null"));
-        error_log("CSRF debug - POST: " . json_encode($req->input()) . " SESSION token: " . (Session::token() ?? "null"));
-        if (in_array($req->method(), ['POST', 'PUT', 'DELETE'], true)) {
-            $token = $req->input(Session::token());
-            if (!is_string($token) || !hash_equals(Session::token(), $token)) {
-                (new Response())->status(403)->json(['error' => 'CSRF token mismatch']);
+        $this->session = new Session();
+    }
+
+    public function handle(Request $request, Response $response): void
+    {
+        if ($request->isPost()) {
+            $token = $request->post('csrf_token');
+            $sessionToken = $this->session->get('csrf_token');
+
+            if (!$token || !$sessionToken || !hash_equals($sessionToken, $token)) {
+                $response->error('CSRF token inválido', 403);
+                exit;
             }
         }
-        return $next($req);
+
+        if (!$this->session->has('csrf_token')) {
+            $this->generateToken();
+        }
+    }
+
+    private function generateToken(): void
+    {
+        $token = bin2hex(random_bytes(32));
+        $this->session->set('csrf_token', $token);
+    }
+
+    public static function getToken(): string
+    {
+        $session = new Session();
+        
+        if (!$session->has('csrf_token')) {
+            $token = bin2hex(random_bytes(32));
+            $session->set('csrf_token', $token);
+        }
+
+        return $session->get('csrf_token');
     }
 }

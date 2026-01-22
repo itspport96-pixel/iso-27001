@@ -1,97 +1,91 @@
 <?php
-declare(strict_types=1);
 
 namespace App\Core;
 
-final class Validator
+class Validator
 {
-    private array $data;
     private array $errors = [];
+    private array $data;
 
     public function __construct(array $data)
     {
         $this->data = $data;
     }
 
-    public function required(string ...$fields): self
+    public function validate(array $rules): bool
     {
-        foreach ($fields as $f) {
-            if (!isset($this->data[$f]) || trim((string)$this->data[$f]) === '') {
-                $this->errors[$f][] = "$f is required";
+        foreach ($rules as $field => $ruleSet) {
+            $ruleArray = explode('|', $ruleSet);
+            
+            foreach ($ruleArray as $rule) {
+                $this->applyRule($field, $rule);
             }
         }
-        return $this;
+
+        return empty($this->errors);
     }
 
-    public function email(string $field): self
+    private function applyRule(string $field, string $rule): void
     {
-        if (isset($this->data[$field]) && !filter_var($this->data[$field], FILTER_VALIDATE_EMAIL)) {
-            $this->errors[$field][] = "$field must be a valid email";
-        }
-        return $this;
-    }
+        $value = $this->data[$field] ?? null;
 
-    public function min(string $field, int $len): self
-    {
-        if (isset($this->data[$field]) && strlen(trim((string)$this->data[$field])) < $len) {
-            $this->errors[$field][] = "$field must be at least $len characters";
+        if (strpos($rule, ':') !== false) {
+            [$ruleName, $param] = explode(':', $rule, 2);
+        } else {
+            $ruleName = $rule;
+            $param = null;
         }
-        return $this;
-    }
 
-    public function max(string $field, int $len): self
-    {
-        if (isset($this->data[$field]) && strlen(trim((string)$this->data[$field])) > $len) {
-            $this->errors[$field][] = "$field must not exceed $len characters";
-        }
-        return $this;
-    }
+        switch ($ruleName) {
+            case 'required':
+                if (empty($value) && $value !== '0') {
+                    $this->errors[$field][] = "$field es requerido";
+                }
+                break;
 
-    public function unique(string $field, string $table, string $column, ?int $excludeId = null): self
-    {
-        $db  = Database::getInstance()->getConnection();
-        $sql = "SELECT COUNT(*) FROM $table WHERE $column = :val";
-        $params = ['val' => $this->data[$field] ?? ''];
-        if ($excludeId !== null) {
-            $sql .= " AND id != :id";
-            $params['id'] = $excludeId;
-        }
-        $stmt = $db->prepare($sql);
-        $stmt->execute($params);
-        if ((int)$stmt->fetchColumn() > 0) {
-            $this->errors[$field][] = "$field already exists";
-        }
-        return $this;
-    }
+            case 'email':
+                if (!empty($value) && !filter_var($value, FILTER_VALIDATE_EMAIL)) {
+                    $this->errors[$field][] = "$field debe ser un email válido";
+                }
+                break;
 
-    public function confirmed(string $field): self
-    {
-        $confirm = $field . '_confirmation';
-        if (($this->data[$field] ?? '') !== ($this->data[$confirm] ?? '')) {
-            $this->errors[$field][] = "$field confirmation does not match";
-        }
-        return $this;
-    }
+            case 'min':
+                if (!empty($value) && strlen($value) < $param) {
+                    $this->errors[$field][] = "$field debe tener al menos $param caracteres";
+                }
+                break;
 
-    public function integer(string $field): self
-    {
-        if (isset($this->data[$field]) && !filter_var($this->data[$field], FILTER_VALIDATE_INT)) {
-            $this->errors[$field][] = "$field must be an integer";
-        }
-        return $this;
-    }
+            case 'max':
+                if (!empty($value) && strlen($value) > $param) {
+                    $this->errors[$field][] = "$field debe tener máximo $param caracteres";
+                }
+                break;
 
-    public function in(string $field, array $values): self
-    {
-        if (isset($this->data[$field]) && !in_array($this->data[$field], $values, true)) {
-            $this->errors[$field][] = "$field is invalid";
-        }
-        return $this;
-    }
+            case 'numeric':
+                if (!empty($value) && !is_numeric($value)) {
+                    $this->errors[$field][] = "$field debe ser numérico";
+                }
+                break;
 
-    public function fails(): bool
-    {
-        return !empty($this->errors);
+            case 'alpha':
+                if (!empty($value) && !ctype_alpha($value)) {
+                    $this->errors[$field][] = "$field solo debe contener letras";
+                }
+                break;
+
+            case 'alphanumeric':
+                if (!empty($value) && !ctype_alnum($value)) {
+                    $this->errors[$field][] = "$field solo debe contener letras y números";
+                }
+                break;
+
+            case 'in':
+                $allowed = explode(',', $param);
+                if (!empty($value) && !in_array($value, $allowed)) {
+                    $this->errors[$field][] = "$field debe ser uno de: $param";
+                }
+                break;
+        }
     }
 
     public function errors(): array
@@ -99,11 +93,13 @@ final class Validator
         return $this->errors;
     }
 
-    public function firstError(): ?string
+    public function firstError(string $field): ?string
     {
-        foreach ($this->errors as $msgs) {
-            return $msgs[0];
-        }
-        return null;
+        return $this->errors[$field][0] ?? null;
+    }
+
+    public function fails(): bool
+    {
+        return !empty($this->errors);
     }
 }

@@ -1,35 +1,80 @@
 <?php
-declare(strict_types=1);
-\App\Core\Session::start(false); // no regenerar mientras se muestra
-$tokenValue = \App\Core\Session::token(); // string a enviar
+use App\Middleware\CsrfMiddleware;
+$csrfToken = CsrfMiddleware::getToken();
 ?>
-<!doctype html>
-<html lang="es">
-<head>
-    <meta charset="utf-8">
-    <title>Registro - ISO27001</title>
-</head>
-<body>
-    <h1>Crear cuenta</h1>
-    <form method="POST" action="/register">
-        <input type="hidden" name="<?= htmlspecialchars($tokenValue) ?>" value="<?= htmlspecialchars($tokenValue) ?>">
-        <label>RUC:
-            <input type="text" name="ruc" required maxlength="20">
-        </label><br>
-        <label>Razón social:
-            <input type="text" name="razon_social" required>
-        </label><br>
-        <label>Email administrador:
-            <input type="email" name="email" required>
-        </label><br>
-        <label>Contraseña:
-            <input type="password" name="password" required minlength="8">
-        </label><br>
-        <label>Confirmar contraseña:
-            <input type="password" name="password_confirmation" required minlength="8">
-        </label><br>
-        <button type="submit">Crear cuenta</button>
-    </form>
-    <p><a href="/login">¿Ya tienes cuenta? Inicia sesión</a></p>
-</body>
-</html>
+
+<h2>Registro de Nueva Empresa</h2>
+
+<form id="registerForm">
+    <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
+    
+    <h3>Datos de la Empresa</h3>
+    
+    <label>Nombre de la Empresa:</label><br>
+    <input type="text" name="empresa_nombre" required><br><br>
+    
+    <label>RUC:</label><br>
+    <input type="text" name="empresa_ruc" required><br><br>
+    
+    <label>Email de Contacto:</label><br>
+    <input type="email" name="empresa_email" required><br><br>
+    
+    <label>Contacto:</label><br>
+    <input type="text" name="empresa_contacto"><br><br>
+    
+    <label>Teléfono:</label><br>
+    <input type="text" name="empresa_telefono"><br><br>
+    
+    <label>Dirección:</label><br>
+    <textarea name="empresa_direccion"></textarea><br><br>
+    
+    <hr>
+    
+    <h3>Datos del Administrador</h3>
+    
+    <label>Nombre Completo:</label><br>
+    <input type="text" name="usuario_nombre" required><br><br>
+    
+    <label>Email:</label><br>
+    <input type="email" name="usuario_email" required><br><br>
+    
+    <label>Contraseña:</label><br>
+    <input type="password" name="password" required><br><br>
+    
+    <label>Confirmar Contraseña:</label><br>
+    <input type="password" name="password_confirm" required><br><br>
+    
+    <button type="submit">Registrar</button>
+</form>
+
+<br>
+<p>¿Ya tienes cuenta? <a href="/login">Iniciar Sesión</a></p>
+
+<div id="message"></div>
+
+<script>
+document.getElementById('registerForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const data = Object.fromEntries(formData);
+    
+    fetch('/register', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: new URLSearchParams(data)
+    })
+    .then(res => res.json())
+    .then(result => {
+        if (result.success) {
+            document.getElementById('message').innerHTML = '<p>Registro exitoso. Redirigiendo...</p>';
+            setTimeout(() => window.location.href = result.redirect, 1000);
+        } else {
+            document.getElementById('message').innerHTML = '<p>Error: ' + (result.error || 'Error desconocido') + '</p>';
+        }
+    })
+    .catch(err => {
+        document.getElementById('message').innerHTML = '<p>Error de conexión</p>';
+    });
+});
+</script>

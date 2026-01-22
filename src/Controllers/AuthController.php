@@ -1,109 +1,133 @@
 <?php
-declare(strict_types=1);
 
 namespace App\Controllers;
 
-use App\Core\{Request, Response, Session};
-use App\Services\{AuthService, RateLimitService};
-use App\Repositories\{EmpresaRepository, UsuarioRepository};
-use App\Models\{Empresa, Usuario};
-use PDO;
+use App\Controllers\Base\Controller;
+use App\Core\Request;
+use App\Core\Response;
+use App\Core\Validator;
+use App\Services\AuthService;
+use App\Middleware\CsrfMiddleware;
 
-final class AuthController
+class AuthController extends Controller
 {
-    private AuthService $auth;
-    private RateLimitService $rate;
-    private EmpresaRepository $empresaRepo;
-    private UsuarioRepository $userRepo;
-
-    public function __construct()
+    public function showRegister(Request $request, Response $response): void
     {
-        $this->auth = new AuthService();
-        $this->rate = new RateLimitService();
-        $this->empresaRepo = new EmpresaRepository();
-        $this->userRepo = new UsuarioRepository();
+        $this->request = $request;
+        $this->response = $response;
+        
+        if ($this->isAuthenticated()) {
+            $this->redirect('/dashboard');
+            return;
+        }
+        
+        $this->view('auth/register');
     }
 
-    public function showRegister(Request $req): void
+    public function register(Request $request, Response $response): void
     {
-        (new Response())->view('auth/register');
+        $this->request = $request;
+        $this->response = $response;
+        
+        $validator = new Validator($request->all());
+        
+        $rules = [
+            'empresa_nombre' => 'required|min:3|max:255',
+            'empresa_ruc' => 'required|min:11|max:20|alphanumeric',
+            'empresa_email' => 'required|email',
+            'usuario_nombre' => 'required|min:3|max:255',
+            'usuario_email' => 'required|email',
+            'password' => 'required|min:8',
+            'password_confirm' => 'required'
+        ];
+        
+        if (!$validator->validate($rules)) {
+            $this->json(['success' => false, 'errors' => $validator->errors()], 400);
+            return;
+        }
+        
+        if ($request->post('password') !== $request->post('password_confirm')) {
+            $this->json(['success' => false, 'error' => 'Las contraseñas no coinciden'], 400);
+            return;
+        }
+        
+        $empresaData = [
+            'nombre' => $request->post('empresa_nombre'),
+            'ruc' => $request->post('empresa_ruc'),
+            'contacto' => $request->post('empresa_contacto'),
+            'telefono' => $request->post('empresa_telefono'),
+            'email' => $request->post('empresa_email'),
+            'direccion' => $request->post('empresa_direccion')
+        ];
+        
+        $usuarioData = [
+            'nombre' => $request->post('usuario_nombre'),
+            'email' => $request->post('usuario_email'),
+            'password' => $request->post('password')
+        ];
+        
+        $auth = new AuthService();
+        $result = $auth->register($empresaData, $usuarioData);
+        
+        if ($result['success']) {
+            $this->session->flash('success', 'Registro exitoso. Por favor inicia sesión.');
+            $this->json(['success' => true, 'redirect' => '/login']);
+        } else {
+            $this->json(['success' => false, 'error' => $result['error']], 400);
+        }
     }
 
-    public function register(Request $req): void
+    public function showLogin(Request $request, Response $response): void
     {
-	file_put_contents('/tmp/debug.txt', json_encode($req->all()) . PHP_EOL, FILE_APPEND);
-        $errors = (new \App\Core\Validator($req->all()))
-            ->required('ruc', 'razon_social', 'email', 'password', 'password_confirmation')
-            ->email('email')
-            ->min('password', 8)
-            ->confirmed('password')
-            ->errors();
-
-        if ($errors) {
-            (new Response())->json(['errors' => $errors], 422);
+        $this->request = $request;
+        $this->response = $response;
+        
+        if ($this->isAuthenticated()) {
+            $this->redirect('/dashboard');
+            return;
         }
-
-        if ($this->empresaRepo->existsByRuc($req->input('ruc'))) {
-            (new Response())->json(['errors' => ['ruc' => 'RUC ya registrado']], 422);
-        }
-
-        $db = \App\Core\Database::getInstance()->getConnection();
-        $db->beginTransaction();
-
-        try {
-            $empresaId = Empresa::create([
-                'ruc'           => $req->input('ruc'),
-                'razon_social'  => $req->input('razon_social'),
-                'contacto'      => json_encode(['email' => $req->input('email')]),
-            ]);
-
-            Usuario::create([
-                'empresa_id'    => $empresaId,
-                'nombre'        => 'Administrador',
-                'email'         => $req->input('email'),
-                'password_hash' => $this->auth->hashPassword($req->input('password')),
-                'rol'           => 'admin_empresa',
-            ]);
-
-            // Trigger automático ya creó 93 SOA + 7 reqs
-            $db->commit();
-            (new Response())->json(['message' => 'Empresa creada. Inicie sesión.']);
-        } catch (\Throwable $e) {
-            $db->rollBack();
-            (new Response())->status(500)->json(['error' => 'No se pudo completar el registro']);
-        }
+        
+        $this->view('auth/login');
     }
 
-    public function showLogin(Request $req): void
+    public function login(Request $request, Response $response): void
     {
-        (new Response())->view('auth/login');
-    }
-
-    file_put_contents("/tmp/csrf.log", date("Y-m-d H:i:s") . " POST=" . json_encode($_POST) . " SESSION=" . json_encode($_SESSION) . PHP_EOL, FILE_APPEND);
-    public function login(Request $req): void
-    {
-        $key = 'login:' . $req->ip() . ':' . $req->input('email');
-        if ($this->rate->tooManyAttempts($key, 5, 15)) {
-            (new Response())->json(['error' => 'Demasiados intentos. Espere 15 min.'], 429);
+        $this->request = $request;
+        $this->response = $response;
+        
+        $validator = new Validator($request->all());
+        
+        $rules = [
+            'email' => 'required|email',
+            'password' => 'required'
+        ];
+        
+        if (!$validator->validate($rules)) {
+            $this->json(['success' => false, 'errors' => $validator->errors()], 400);
+            return;
         }
-
-        $user = $this->auth->login(
-            $req->input('email'),
-            $req->input('password'),
-            (int)$req->input('empresa_id')
+        
+        $auth = new AuthService();
+        $result = $auth->loginByEmail(
+            $request->post('email'),
+            $request->post('password')
         );
-
-        if (!$user) {
-            (new Response())->json(['error' => 'Credenciales incorrectas'], 401);
+        
+        if ($result['success']) {
+            $this->json(['success' => true, 'redirect' => '/dashboard']);
+        } else {
+            $this->json(['success' => false, 'error' => $result['error']], 401);
         }
-
-        $this->rate->clear($key);
-        (new Response())->json(['message' => 'Autenticado']);
     }
 
-    public function logout(Request $req): void
+    public function logout(Request $request, Response $response): void
     {
-        $this->auth->logout();
-        (new Response())->redirect('/login');
+        $this->request = $request;
+        $this->response = $response;
+        
+        $auth = new AuthService();
+        $auth->logout();
+        
+        $this->redirect('/login');
     }
 }

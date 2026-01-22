@@ -1,19 +1,52 @@
 <?php
-declare(strict_types=1);
 
 namespace App\Middleware;
 
-use App\Core\{Request, Response, Session, TenantContext};
+use App\Core\Request;
+use App\Core\Response;
+use App\Core\Session;
 
-final class TenantMiddleware
+class TenantMiddleware
 {
-    public function handle(Request $req, callable $next): mixed
+    private Session $session;
+
+    public function __construct()
     {
-        $empresaId = Session::get('empresa_id');
-        if (!is_int($empresaId)) {
-            (new Response())->status(403)->json(['error' => 'Tenant not found in session']);
+        $this->session = new Session();
+    }
+
+    public function handle(Request $request, Response $response): void
+    {
+        if (!$this->session->has('empresa_id')) {
+            $response->error('Tenant no identificado', 403);
+            exit;
         }
-        TenantContext::setTenant($empresaId);
-        return $next($req);
+
+        $empresaId = $this->session->get('empresa_id');
+        
+        if (empty($empresaId) || !is_numeric($empresaId)) {
+            $response->error('Tenant inválido', 403);
+            exit;
+        }
+
+        define('TENANT_ID', (int)$empresaId);
+    }
+
+    public static function getTenantId(): ?int
+    {
+        $session = new Session();
+        return $session->get('empresa_id');
+    }
+
+    public static function setTenantId(int $empresaId): void
+    {
+        $session = new Session();
+        $session->set('empresa_id', $empresaId);
+    }
+
+    public static function clearTenant(): void
+    {
+        $session = new Session();
+        $session->remove('empresa_id');
     }
 }

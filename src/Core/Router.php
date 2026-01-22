@@ -1,69 +1,78 @@
 <?php
-declare(strict_types=1);
 
 namespace App\Core;
 
-final class Router
+class Router
 {
     private array $routes = [];
     private array $middlewares = [];
 
-    public function get(string $uri, $action): self
+    public function get(string $uri, callable|array $action, array $middlewares = []): void
     {
-        return $this->addRoute('GET', $uri, $action);
+        $this->addRoute('GET', $uri, $action, $middlewares);
     }
 
-    public function post(string $uri, $action): self
+    public function post(string $uri, callable|array $action, array $middlewares = []): void
     {
-        return $this->addRoute('POST', $uri, $action);
+        $this->addRoute('POST', $uri, $action, $middlewares);
     }
 
-    public function put(string $uri, $action): self
+    private function addRoute(string $method, string $uri, callable|array $action, array $middlewares): void
     {
-        return $this->addRoute('PUT', $uri, $action);
+        $this->routes[] = [
+            'method' => $method,
+            'uri' => $uri,
+            'action' => $action,
+            'middlewares' => $middlewares
+        ];
     }
 
-    public function delete(string $uri, $action): self
+    public function dispatch(Request $request, Response $response): void
     {
-        return $this->addRoute('DELETE', $uri, $action);
-    }
+        $uri = $request->uri();
+        $method = $request->method();
 
-    private function addRoute(string $method, string $uri, $action): self
-    {
-        if (is_array($action) && count($action) === 2) {
-            $action = fn($req) => (new $action[0])->{$action[1]}($req);
-        }
-        $this->routes[$method][$uri] = $action;
-        return $this;
-    }
-
-    public function middleware(string $name, callable $handler): self
-    {
-        $this->middlewares[$name] = $handler;
-        return $this;
-    }
-
-    public function dispatch(Request $req): mixed
-    {
-        $method = $req->method();
-        $uri    = $req->uri();
-
-        if (!isset($this->routes[$method][$uri])) {
-            (new Response())->status(404)->text('Not Found');
+        foreach ($this->routes as $route) {
+            if ($route['method'] === $method && $this->matchUri($route['uri'], $uri, $params)) {
+                $this->executeMiddlewares($route['middlewares'], $request, $response);
+                $this->executeAction($route['action'], $params, $request, $response);
+                return;
+            }
         }
 
-        $action = $this->routes[$method][$uri];
+        $response->notFound();
+    }
 
-        $next = function ($req) use ($action) {
-            return $action($req);
-        };
+    private function matchUri(string $pattern, string $uri, &$params = []): bool
+    {
+        $pattern = preg_replace('/\{([a-zA-Z0-9_]+)\}/', '([^/]+)', $pattern);
+        $pattern = '#^' . $pattern . '$#';
 
-        foreach ($this->middlewares as $mw) {
-            $next = function ($req) use ($mw, $next) {
-                return $mw($req, $next);
-            };
+        if (preg_match($pattern, $uri, $matches)) {
+            array_shift($matches);
+            $params = $matches;
+            return true;
         }
 
-        return $next($req);
+        return false;
+    }
+
+    private function executeMiddlewares(array $middlewares, Request $request, Response $response): void
+    {
+        foreach ($middlewares as $middleware) {
+            $instance = new $middleware();
+            $instance->handle($request, $response);
+        }
+    }
+
+    private function executeAction(callable|array $action, array $params, Request $request, Response $response): void
+    {
+        if (is_array($action)) {
+            [$controller, $method] = $action;
+            $instance = new $controller();
+            call_user_func_array([$instance, $method], array_merge([$request, $response], $params));
+        } else {
+            call_user_func_array($action, array_merge([$request, $response], $params));
+        }
     }
 }
