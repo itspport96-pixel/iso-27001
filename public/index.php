@@ -15,7 +15,10 @@ use App\Models\Usuario;
 use App\Models\Control;
 use App\Models\SOA;
 use App\Controllers\AuthController;
+use App\Controllers\ControlController;
+use App\Controllers\GapController;
 use App\Middleware\CsrfMiddleware;
+use App\Middleware\AuthMiddleware;
 
 // Cargar variables de entorno
 $dotenv = Dotenv::createImmutable(__DIR__ . '/..');
@@ -57,7 +60,7 @@ $router->post('/login', [AuthController::class, 'login'], [CsrfMiddleware::class
 
 $router->get('/logout', [AuthController::class, 'logout']);
 
-// Dashboard temporal
+// Dashboard
 $router->get('/dashboard', function($request, $response) {
     $session = new Session();
     if (!$session->has('user_id')) {
@@ -77,10 +80,32 @@ $router->get('/dashboard', function($request, $response) {
     $html .= '<p>Email: ' . htmlspecialchars($user['email']) . '</p>';
     $html .= '<p>Rol: ' . htmlspecialchars($user['rol']) . '</p>';
     $html .= '<p>Empresa ID: ' . htmlspecialchars($user['empresa_id']) . '</p>';
-    $html .= '<br><a href="/logout">Cerrar Sesión</a>';
+    $html .= '<hr>';
+    $html .= '<h3>Menú</h3>';
+    $html .= '<ul>';
+    $html .= '<li><a href="/controles">Controles ISO 27001</a></li>';
+    $html .= '<li><a href="/gaps">Análisis de Brechas (GAP)</a></li>';
+    $html .= '<li><a href="/logout">Cerrar Sesión</a></li>';
+    $html .= '</ul>';
     
     $response->html($html);
 });
+
+// Rutas de controles
+$router->get('/controles', [ControlController::class, 'index']);
+$router->get('/controles/{id}', [ControlController::class, 'show']);
+$router->post('/controles/{id}/update', [ControlController::class, 'update'], [CsrfMiddleware::class, AuthMiddleware::class]);
+$router->get('/controles/estadisticas', [ControlController::class, 'estadisticas']);
+
+// Rutas de GAPs
+$router->get('/gaps', [GapController::class, 'index']);
+$router->get('/gaps/create', [GapController::class, 'create']);
+$router->post('/gaps/store', [GapController::class, 'store'], [CsrfMiddleware::class, AuthMiddleware::class]);
+$router->get('/gaps/{id}', [GapController::class, 'show']);
+$router->post('/gaps/{id}/update', [GapController::class, 'update'], [CsrfMiddleware::class, AuthMiddleware::class]);
+$router->post('/gaps/{id}/delete', [GapController::class, 'delete'], [CsrfMiddleware::class, AuthMiddleware::class]);
+$router->post('/gaps/accion/{id}/update', [GapController::class, 'updateAccion'], [CsrfMiddleware::class, AuthMiddleware::class]);
+$router->post('/gaps/accion/{id}/completar', [GapController::class, 'completarAccion'], [CsrfMiddleware::class, AuthMiddleware::class]);
 
 // Rutas de prueba
 $router->get('/test-db', function($request, $response) use ($log) {
