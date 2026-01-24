@@ -18,18 +18,18 @@ class FileService
 
     public function __construct()
     {
-        $this->uploadPath = $_ENV['UPLOAD_PATH'] ?? '/var/www/html/public/uploads';
+        $this->uploadPath = $_ENV['UPLOAD_PATH'] ?? '/var/www/html/storage/uploads';
         $this->maxSize = (int)($_ENV['UPLOAD_MAX_SIZE'] ?? 10485760);
     }
 
-    public function upload(array $file, int $empresaId): ?array
+    public function upload(array $file, int $empresaId): array
     {
         if (!isset($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
-            return ['error' => 'Archivo inválido'];
+            return ['success' => false, 'error' => 'Archivo inválido'];
         }
 
         if ($file['size'] > $this->maxSize) {
-            return ['error' => 'Archivo excede el tamaño máximo'];
+            return ['success' => false, 'error' => 'Archivo excede el tamaño máximo'];
         }
 
         $finfo = finfo_open(FILEINFO_MIME_TYPE);
@@ -37,7 +37,7 @@ class FileService
         finfo_close($finfo);
 
         if (!in_array($mimeType, $this->allowedMimes)) {
-            return ['error' => 'Tipo de archivo no permitido'];
+            return ['success' => false, 'error' => 'Tipo de archivo no permitido'];
         }
 
         $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
@@ -57,23 +57,21 @@ class FileService
         if (move_uploaded_file($file['tmp_name'], $destination)) {
             return [
                 'success' => true,
-                'filename' => $filename,
-                'path' => $empresaId . '/' . $year . '/' . $month . '/' . $filename,
-                'size' => $file['size'],
-                'mime' => $mimeType,
+                'nombre_original' => $file['name'],
+                'ruta' => $destination,
+                'tipo_mime' => $mimeType,
+                'tamano' => $file['size'],
                 'hash' => $hash
             ];
         }
 
-        return ['error' => 'Error al guardar el archivo'];
+        return ['success' => false, 'error' => 'Error al guardar el archivo'];
     }
 
     public function delete(string $path): bool
     {
-        $fullPath = $this->uploadPath . '/' . $path;
-        
-        if (file_exists($fullPath) && strpos(realpath($fullPath), realpath($this->uploadPath)) === 0) {
-            return unlink($fullPath);
+        if (file_exists($path) && strpos(realpath($path), realpath($this->uploadPath)) === 0) {
+            return unlink($path);
         }
 
         return false;
@@ -81,7 +79,6 @@ class FileService
 
     public function exists(string $path): bool
     {
-        $fullPath = $this->uploadPath . '/' . $path;
-        return file_exists($fullPath);
+        return file_exists($path);
     }
 }

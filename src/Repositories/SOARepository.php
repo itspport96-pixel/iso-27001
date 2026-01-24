@@ -210,6 +210,7 @@ class SOARepository extends Repository
     {
         $sql = "SELECT 
                 COUNT(*) as total,
+                SUM(CASE WHEN aplicable = 0 THEN 1 ELSE 0 END) as no_aplicables,
                 SUM(CASE WHEN aplicable = 1 THEN 1 ELSE 0 END) as aplicables,
                 SUM(CASE WHEN aplicable = 1 AND estado = 'implementado' THEN 1 ELSE 0 END) as implementados,
                 SUM(CASE WHEN aplicable = 1 AND estado = 'parcial' THEN 1 ELSE 0 END) as parciales,

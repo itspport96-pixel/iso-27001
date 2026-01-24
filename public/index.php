@@ -10,13 +10,10 @@ use App\Core\Response;
 use App\Core\Session;
 use App\Core\TenantContext;
 use App\Services\LogService;
-use App\Models\Empresa;
-use App\Models\Usuario;
-use App\Models\Control;
-use App\Models\SOA;
 use App\Controllers\AuthController;
 use App\Controllers\ControlController;
 use App\Controllers\GapController;
+use App\Controllers\EvidenciaController;
 use App\Middleware\CsrfMiddleware;
 use App\Middleware\AuthMiddleware;
 
@@ -85,6 +82,7 @@ $router->get('/dashboard', function($request, $response) {
     $html .= '<ul>';
     $html .= '<li><a href="/controles">Controles ISO 27001</a></li>';
     $html .= '<li><a href="/gaps">Análisis de Brechas (GAP)</a></li>';
+    $html .= '<li><a href="/evidencias">Evidencias</a></li>';
     $html .= '<li><a href="/logout">Cerrar Sesión</a></li>';
     $html .= '</ul>';
     
@@ -107,110 +105,14 @@ $router->post('/gaps/{id}/delete', [GapController::class, 'delete'], [CsrfMiddle
 $router->post('/gaps/accion/{id}/update', [GapController::class, 'updateAccion'], [CsrfMiddleware::class, AuthMiddleware::class]);
 $router->post('/gaps/accion/{id}/completar', [GapController::class, 'completarAccion'], [CsrfMiddleware::class, AuthMiddleware::class]);
 
-// Rutas de prueba
-$router->get('/test-db', function($request, $response) use ($log) {
-    try {
-        $db = Database::getInstance();
-        $connection = $db->getConnection();
-        $response->json(['status' => 'success', 'message' => 'Conexión a base de datos exitosa']);
-    } catch (\Exception $e) {
-        $log->error('Database connection failed', ['error' => $e->getMessage()]);
-        $response->json(['status' => 'error', 'message' => 'Error de conexión'], 500);
-    }
-});
-
-$router->get('/test-session', function($request, $response) {
-    $session = new Session();
-    $session->set('test_key', 'test_value_' . time());
-    $value = $session->get('test_key');
-    $response->json(['status' => 'success', 'session_value' => $value]);
-});
-
-$router->get('/test-cache', function($request, $response) {
-    $cache = new \App\Services\CacheService();
-    $cache->put('test_key', 'cached_value_' . time(), 60);
-    $value = $cache->get('test_key');
-    $response->json(['status' => 'success', 'cache_value' => $value]);
-});
-
-$router->get('/test-schema', function($request, $response) use ($log) {
-    try {
-        $db = Database::getInstance();
-        $tables = $db->query("SHOW TABLES")->fetchAll(PDO::FETCH_COLUMN);
-        
-        $counts = [];
-        foreach($tables as $table) {
-            $count = $db->query("SELECT COUNT(*) FROM $table")->fetchColumn();
-            $counts[$table] = $count;
-        }
-        
-        $response->json(['status' => 'success', 'tables' => $counts]);
-    } catch (\Exception $e) {
-        $log->error('Schema test failed', ['error' => $e->getMessage()]);
-        $response->json(['status' => 'error', 'message' => $e->getMessage()], 500);
-    }
-});
-
-$router->get('/test-tenant', function($request, $response) use ($log) {
-    try {
-        $empresaModel = new Empresa();
-        $empresaId = $empresaModel->create([
-            'nombre' => 'Empresa Test',
-            'ruc' => 'TEST' . time(),
-            'contacto' => 'Test Contact',
-            'email' => 'test@test.com'
-        ]);
-        
-        TenantContext::getInstance()->setTenant($empresaId);
-        
-        $usuarioModel = new Usuario();
-        $usuarioId = $usuarioModel->create([
-            'nombre' => 'Usuario Test',
-            'email' => 'usuario@test.com',
-            'password_hash' => password_hash('test123', PASSWORD_ARGON2ID),
-            'rol' => 'admin_empresa',
-            'estado' => 'activo'
-        ]);
-        
-        $controlModel = new Control();
-        $controles = $controlModel->findAll([], 5, 0);
-        
-        $soaModel = new SOA();
-        $soaCreated = 0;
-        
-        foreach ($controles as $control) {
-            $soaModel->create([
-                'control_id' => $control['id'],
-                'aplicable' => 1,
-                'estado' => 'no_implementado',
-                'justificacion' => 'Control aplicable para la organización'
-            ]);
-            $soaCreated++;
-        }
-        
-        TenantContext::getInstance()->clearTenant();
-        $usuarioSinTenant = $usuarioModel->find($usuarioId);
-        
-        TenantContext::getInstance()->setTenant($empresaId);
-        $usuarioConTenant = $usuarioModel->find($usuarioId);
-        
-        $progreso = $soaModel->calculateProgress();
-        
-        $response->json([
-            'status' => 'success',
-            'empresa_id' => $empresaId,
-            'usuario_id' => $usuarioId,
-            'soa_created' => $soaCreated,
-            'usuario_sin_tenant' => $usuarioSinTenant === null ? 'CORRECTO: No accesible' : 'ERROR: Accesible',
-            'usuario_con_tenant' => $usuarioConTenant !== null ? 'CORRECTO: Accesible' : 'ERROR: No accesible',
-            'progreso_soa' => $progreso
-        ]);
-        
-    } catch (\Exception $e) {
-        $log->error('Tenant test failed', ['error' => $e->getMessage()]);
-        $response->json(['status' => 'error', 'message' => $e->getMessage()], 500);
-    }
-});
+// Rutas de Evidencias
+$router->get('/evidencias', [EvidenciaController::class, 'index']);
+$router->get('/evidencias/create', [EvidenciaController::class, 'create']);
+$router->post('/evidencias/store', [EvidenciaController::class, 'store'], [CsrfMiddleware::class, AuthMiddleware::class]);
+$router->get('/evidencias/{id}', [EvidenciaController::class, 'show']);
+$router->post('/evidencias/{id}/validar', [EvidenciaController::class, 'validar'], [CsrfMiddleware::class, AuthMiddleware::class]);
+$router->post('/evidencias/{id}/delete', [EvidenciaController::class, 'delete'], [CsrfMiddleware::class, AuthMiddleware::class]);
+$router->get('/evidencias/{id}/download', [EvidenciaController::class, 'download']);
 
 // Manejo de errores global
 try {

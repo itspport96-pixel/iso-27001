@@ -2,6 +2,7 @@
 
 <h3>Estadísticas Generales</h3>
 <p>Total de controles: <?= $estadisticas['total'] ?></p>
+<p>Controles NO aplicables: <?= $estadisticas['no_aplicables'] ?></p>
 <p>Controles aplicables: <?= $estadisticas['aplicables'] ?></p>
 <p>Implementados: <?= $estadisticas['implementados'] ?> (<?= $estadisticas['porcentaje'] ?>%)</p>
 <p>Parciales: <?= $estadisticas['parciales'] ?></p>

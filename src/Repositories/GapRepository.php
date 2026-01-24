@@ -46,10 +46,14 @@ class GapRepository extends Repository
 
     public function getByPrioridad(string $prioridad): array
     {
-        $sql = "SELECT g.*, s.control_id, c.codigo, c.nombre as control_nombre
+        $sql = "SELECT g.*, s.control_id, c.codigo, c.nombre as control_nombre,
+                d.nombre as dominio_nombre,
+                (SELECT COUNT(*) FROM acciones WHERE gap_id = g.id AND estado_accion = 'activo') as total_acciones,
+                (SELECT COUNT(*) FROM acciones WHERE gap_id = g.id AND estado_accion = 'activo' AND estado = 'completada') as acciones_completadas
                 FROM {$this->table} g
                 INNER JOIN soa_entries s ON g.soa_id = s.id
                 INNER JOIN controles c ON s.control_id = c.id
+                INNER JOIN controles_dominio d ON c.dominio_id = d.id
                 WHERE g.prioridad = :prioridad
                 AND g.estado_gap = 'activo'";
         
@@ -171,7 +175,9 @@ class GapRepository extends Repository
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if ($result) {
-            $result['avance_promedio'] = round($result['avance_promedio'], 2);
+            $result['avance_promedio'] = $result['avance_promedio'] !== null 
+                ? round((float)$result['avance_promedio'], 2) 
+                : 0;
         }
         
         return $result;
