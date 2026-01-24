@@ -14,6 +14,7 @@ use App\Controllers\AuthController;
 use App\Controllers\ControlController;
 use App\Controllers\GapController;
 use App\Controllers\EvidenciaController;
+use App\Controllers\RequerimientoController;
 use App\Middleware\CsrfMiddleware;
 use App\Middleware\AuthMiddleware;
 
@@ -72,19 +73,21 @@ $router->get('/dashboard', function($request, $response) {
         'empresa_id' => $session->get('empresa_id')
     ];
     
-    $html = '<h1>Dashboard</h1>';
-    $html .= '<p>Bienvenido: ' . htmlspecialchars($user['nombre']) . '</p>';
-    $html .= '<p>Email: ' . htmlspecialchars($user['email']) . '</p>';
-    $html .= '<p>Rol: ' . htmlspecialchars($user['rol']) . '</p>';
-    $html .= '<p>Empresa ID: ' . htmlspecialchars($user['empresa_id']) . '</p>';
+    $html = '<h1>Dashboard ISO 27001 Compliance</h1>';
+    $html .= '<p><strong>Usuario:</strong> ' . htmlspecialchars($user['nombre']) . '</p>';
+    $html .= '<p><strong>Email:</strong> ' . htmlspecialchars($user['email']) . '</p>';
+    $html .= '<p><strong>Rol:</strong> ' . htmlspecialchars($user['rol']) . '</p>';
+    $html .= '<p><strong>Empresa ID:</strong> ' . htmlspecialchars($user['empresa_id']) . '</p>';
     $html .= '<hr>';
-    $html .= '<h3>Menú</h3>';
+    $html .= '<h3>Módulos del Sistema</h3>';
     $html .= '<ul>';
-    $html .= '<li><a href="/controles">Controles ISO 27001</a></li>';
+    $html .= '<li><a href="/controles">Controles ISO 27001 (93 controles)</a></li>';
+    $html .= '<li><a href="/requerimientos">Requerimientos Obligatorios (7 requerimientos)</a></li>';
     $html .= '<li><a href="/gaps">Análisis de Brechas (GAP)</a></li>';
     $html .= '<li><a href="/evidencias">Evidencias</a></li>';
-    $html .= '<li><a href="/logout">Cerrar Sesión</a></li>';
     $html .= '</ul>';
+    $html .= '<hr>';
+    $html .= '<p><a href="/logout">Cerrar Sesión</a></p>';
     
     $response->html($html);
 });
@@ -113,6 +116,11 @@ $router->get('/evidencias/{id}', [EvidenciaController::class, 'show']);
 $router->post('/evidencias/{id}/validar', [EvidenciaController::class, 'validar'], [CsrfMiddleware::class, AuthMiddleware::class]);
 $router->post('/evidencias/{id}/delete', [EvidenciaController::class, 'delete'], [CsrfMiddleware::class, AuthMiddleware::class]);
 $router->get('/evidencias/{id}/download', [EvidenciaController::class, 'download']);
+
+// Rutas de Requerimientos
+$router->get('/requerimientos', [RequerimientoController::class, 'index']);
+$router->get('/requerimientos/{id}', [RequerimientoController::class, 'show']);
+$router->post('/requerimientos/{id}/update', [RequerimientoController::class, 'update'], [CsrfMiddleware::class, AuthMiddleware::class]);
 
 // Manejo de errores global
 try {

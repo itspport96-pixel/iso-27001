@@ -1,0 +1,107 @@
+<?php
+
+namespace App\Controllers;
+
+use App\Controllers\Base\Controller;
+use App\Core\Request;
+use App\Core\Response;
+use App\Core\TenantContext;
+use App\Core\Validator;
+use App\Repositories\RequerimientoRepository;
+use App\Models\Requerimiento;
+
+class RequerimientoController extends Controller
+{
+    private RequerimientoRepository $requerimientoRepo;
+
+    public function __construct()
+    {
+        parent::__construct();
+        $this->requerimientoRepo = new RequerimientoRepository();
+    }
+
+    public function index(Request $request, Response $response): void
+    {
+        $this->request = $request;
+        $this->response = $response;
+        $this->requireAuth();
+
+        $empresaId = $this->user()['empresa_id'];
+        TenantContext::getInstance()->setTenant($empresaId);
+
+        $requerimientos = $this->requerimientoRepo->getWithRequerimientoBase();
+        
+        // Calcular progreso de cada requerimiento
+        foreach ($requerimientos as &$req) {
+            $progreso = $this->requerimientoRepo->calcularProgresoRequerimiento($req['requerimiento_id']);
+            $req['progreso'] = $progreso;
+        }
+        
+        $estadisticas = $this->requerimientoRepo->getEstadisticas();
+
+        $this->view('requerimientos/index', [
+            'requerimientos' => $requerimientos,
+            'estadisticas' => $estadisticas
+        ]);
+    }
+
+    public function show(Request $request, Response $response, string $id): void
+    {
+        $this->request = $request;
+        $this->response = $response;
+        $this->requireAuth();
+
+        $empresaId = $this->user()['empresa_id'];
+        TenantContext::getInstance()->setTenant($empresaId);
+
+        $requerimiento = $this->requerimientoRepo->findWithDetails((int)$id);
+
+        if (!$requerimiento) {
+            $this->response->error('Requerimiento no encontrado', 404);
+            return;
+        }
+
+        $controles = $this->requerimientoRepo->getControlesAsociados($requerimiento['requerimiento_id']);
+        $progreso = $this->requerimientoRepo->calcularProgresoRequerimiento($requerimiento['requerimiento_id']);
+
+        $this->view('requerimientos/show', [
+            'requerimiento' => $requerimiento,
+            'controles' => $controles,
+            'progreso' => $progreso
+        ]);
+    }
+
+    public function update(Request $request, Response $response, string $id): void
+    {
+        $this->request = $request;
+        $this->response = $response;
+        $this->requireAuth();
+
+        $empresaId = $this->user()['empresa_id'];
+        TenantContext::getInstance()->setTenant($empresaId);
+
+        $validator = new Validator($request->all());
+        
+        $rules = [
+            'estado' => 'required|in:pendiente,en_proceso,completado'
+        ];
+        
+        if (!$validator->validate($rules)) {
+            $this->json(['success' => false, 'errors' => $validator->errors()], 400);
+            return;
+        }
+
+        $requerimientoModel = new Requerimiento();
+        $result = $requerimientoModel->updateEstado(
+            (int)$id,
+            $request->post('estado'),
+            $request->post('observaciones')
+        );
+
+        if ($result) {
+            $this->json(['success' => true, 'message' => 'Requerimiento actualizado']);
+        } else {
+            $this->json(['success' => false, 'error' => 'Error al actualizar'], 500);
+        }
+    }
+}
