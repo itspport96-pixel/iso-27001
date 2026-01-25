@@ -3,7 +3,17 @@ use App\Middleware\CsrfMiddleware;
 $csrfToken = CsrfMiddleware::getToken();
 ?>
 
-<h2>Crear Análisis de Brecha (GAP)</h2>
+<h2>Crear Nuevo Análisis de Brecha (GAP)</h2>
+
+<?php if (isset($_SESSION['_flash_error'])): ?>
+    <p style="color: red;"><?= htmlspecialchars($_SESSION['_flash_error']) ?></p>
+    <?php unset($_SESSION['_flash_error']); ?>
+<?php endif; ?>
+
+<?php if (isset($_SESSION['_flash_success'])): ?>
+    <p style="color: green;"><?= htmlspecialchars($_SESSION['_flash_success']) ?></p>
+    <?php unset($_SESSION['_flash_success']); ?>
+<?php endif; ?>
 
 <form method="POST" action="/gaps/store">
     <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
@@ -19,8 +29,8 @@ $csrfToken = CsrfMiddleware::getToken();
     </select>
     <br><br>
     
-    <label>Descripción de la Brecha:</label><br>
-    <textarea name="brecha" rows="4" cols="60" required></textarea>
+    <label>Descripción de la Brecha (mínimo 10 caracteres):</label><br>
+    <textarea name="brecha" rows="4" cols="60" required minlength="10"></textarea>
     <br><br>
     
     <label>Impacto:</label><br>
@@ -42,21 +52,21 @@ $csrfToken = CsrfMiddleware::getToken();
     </select>
     <br><br>
     
-    <label>Fecha Objetivo de Cierre:</label><br>
+    <label>Fecha Objetivo:</label><br>
     <input type="date" name="fecha_objetivo">
     <br><br>
     
-    <hr>
-    
-    <h3>Plan de Acción</h3>
-    <div id="acciones">
-        <div>
-            <label>Acción 1:</label><br>
-            <textarea name="accion_descripcion[]" rows="2" cols="60" placeholder="Descripción de la acción" required></textarea><br>
-            <label>Responsable:</label>
-            <input type="text" name="accion_responsable[]"><br>
-            <label>Fecha Compromiso:</label>
-            <input type="date" name="accion_fecha[]" required>
+    <h3>Acciones Correctivas</h3>
+    <div id="acciones-container">
+        <div class="accion-item">
+            <label>Descripción:</label><br>
+            <input type="text" name="accion_descripcion[]" style="width: 400px;">
+            <br>
+            <label>Responsable:</label><br>
+            <input type="text" name="accion_responsable[]" style="width: 200px;">
+            <br>
+            <label>Fecha Compromiso:</label><br>
+            <input type="date" name="accion_fecha[]">
             <br><br>
         </div>
     </div>
@@ -64,27 +74,26 @@ $csrfToken = CsrfMiddleware::getToken();
     <button type="button" onclick="agregarAccion()">Agregar Otra Acción</button>
     <br><br>
     
-    <hr>
-    
     <button type="submit">Crear GAP</button>
     <a href="/gaps">Cancelar</a>
 </form>
 
 <script>
-let accionCount = 1;
-
 function agregarAccion() {
-    accionCount++;
-    const div = document.createElement('div');
-    div.innerHTML = `
-        <label>Acción ${accionCount}:</label><br>
-        <textarea name="accion_descripcion[]" rows="2" cols="60" placeholder="Descripción de la acción" required></textarea><br>
-        <label>Responsable:</label>
-        <input type="text" name="accion_responsable[]"><br>
-        <label>Fecha Compromiso:</label>
-        <input type="date" name="accion_fecha[]" required>
+    const container = document.getElementById('acciones-container');
+    const nuevaAccion = document.createElement('div');
+    nuevaAccion.className = 'accion-item';
+    nuevaAccion.innerHTML = `
+        <label>Descripción:</label><br>
+        <input type="text" name="accion_descripcion[]" style="width: 400px;">
+        <br>
+        <label>Responsable:</label><br>
+        <input type="text" name="accion_responsable[]" style="width: 200px;">
+        <br>
+        <label>Fecha Compromiso:</label><br>
+        <input type="date" name="accion_fecha[]">
         <br><br>
     `;
-    document.getElementById('acciones').appendChild(div);
+    container.appendChild(nuevaAccion);
 }
 </script>

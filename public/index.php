@@ -11,10 +11,12 @@ use App\Core\Session;
 use App\Core\TenantContext;
 use App\Services\LogService;
 use App\Controllers\AuthController;
+use App\Controllers\DashboardController;
 use App\Controllers\ControlController;
 use App\Controllers\GapController;
 use App\Controllers\EvidenciaController;
 use App\Controllers\RequerimientoController;
+use App\Controllers\AuditController;
 use App\Middleware\CsrfMiddleware;
 use App\Middleware\AuthMiddleware;
 
@@ -59,38 +61,7 @@ $router->post('/login', [AuthController::class, 'login'], [CsrfMiddleware::class
 $router->get('/logout', [AuthController::class, 'logout']);
 
 // Dashboard
-$router->get('/dashboard', function($request, $response) {
-    $session = new Session();
-    if (!$session->has('user_id')) {
-        $response->redirect('/login');
-        return;
-    }
-    
-    $user = [
-        'nombre' => $session->get('user_nombre'),
-        'email' => $session->get('user_email'),
-        'rol' => $session->get('user_rol'),
-        'empresa_id' => $session->get('empresa_id')
-    ];
-    
-    $html = '<h1>Dashboard ISO 27001 Compliance</h1>';
-    $html .= '<p><strong>Usuario:</strong> ' . htmlspecialchars($user['nombre']) . '</p>';
-    $html .= '<p><strong>Email:</strong> ' . htmlspecialchars($user['email']) . '</p>';
-    $html .= '<p><strong>Rol:</strong> ' . htmlspecialchars($user['rol']) . '</p>';
-    $html .= '<p><strong>Empresa ID:</strong> ' . htmlspecialchars($user['empresa_id']) . '</p>';
-    $html .= '<hr>';
-    $html .= '<h3>Módulos del Sistema</h3>';
-    $html .= '<ul>';
-    $html .= '<li><a href="/controles">Controles ISO 27001 (93 controles)</a></li>';
-    $html .= '<li><a href="/requerimientos">Requerimientos Obligatorios (7 requerimientos)</a></li>';
-    $html .= '<li><a href="/gaps">Análisis de Brechas (GAP)</a></li>';
-    $html .= '<li><a href="/evidencias">Evidencias</a></li>';
-    $html .= '</ul>';
-    $html .= '<hr>';
-    $html .= '<p><a href="/logout">Cerrar Sesión</a></p>';
-    
-    $response->html($html);
-});
+$router->get('/dashboard', [DashboardController::class, 'index']);
 
 // Rutas de controles
 $router->get('/controles', [ControlController::class, 'index']);
@@ -121,6 +92,10 @@ $router->get('/evidencias/{id}/download', [EvidenciaController::class, 'download
 $router->get('/requerimientos', [RequerimientoController::class, 'index']);
 $router->get('/requerimientos/{id}', [RequerimientoController::class, 'show']);
 $router->post('/requerimientos/{id}/update', [RequerimientoController::class, 'update'], [CsrfMiddleware::class, AuthMiddleware::class]);
+
+// Rutas de Auditoría
+$router->get('/audit', [AuditController::class, 'index']);
+$router->get('/audit/{id}', [AuditController::class, 'show']);
 
 // Manejo de errores global
 try {

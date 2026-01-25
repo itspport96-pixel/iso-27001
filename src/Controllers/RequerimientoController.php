@@ -8,16 +8,19 @@ use App\Core\Response;
 use App\Core\TenantContext;
 use App\Core\Validator;
 use App\Repositories\RequerimientoRepository;
+use App\Services\AuditService;
 use App\Models\Requerimiento;
 
 class RequerimientoController extends Controller
 {
     private RequerimientoRepository $requerimientoRepo;
+    private AuditService $auditService;
 
     public function __construct()
     {
         parent::__construct();
         $this->requerimientoRepo = new RequerimientoRepository();
+        $this->auditService = new AuditService();
     }
 
     public function index(Request $request, Response $response): void
@@ -31,7 +34,6 @@ class RequerimientoController extends Controller
 
         $requerimientos = $this->requerimientoRepo->getWithRequerimientoBase();
         
-        // Calcular progreso de cada requerimiento
         foreach ($requerimientos as &$req) {
             $progreso = $this->requerimientoRepo->calcularProgresoRequerimiento($req['requerimiento_id']);
             $req['progreso'] = $progreso;
@@ -91,6 +93,8 @@ class RequerimientoController extends Controller
             return;
         }
 
+        $requerimientoAnterior = $this->requerimientoRepo->findWithDetails((int)$id);
+
         $requerimientoModel = new Requerimiento();
         $result = $requerimientoModel->updateEstado(
             (int)$id,
@@ -99,6 +103,20 @@ class RequerimientoController extends Controller
         );
 
         if ($result) {
+            $this->auditService->log(
+                'UPDATE',
+                'empresa_requerimientos',
+                (int)$id,
+                [
+                    'estado' => $requerimientoAnterior['estado'],
+                    'observaciones' => $requerimientoAnterior['observaciones']
+                ],
+                [
+                    'estado' => $request->post('estado'),
+                    'observaciones' => $request->post('observaciones')
+                ]
+            );
+
             $this->json(['success' => true, 'message' => 'Requerimiento actualizado']);
         } else {
             $this->json(['success' => false, 'error' => 'Error al actualizar'], 500);

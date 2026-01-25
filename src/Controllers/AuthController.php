@@ -7,10 +7,19 @@ use App\Core\Request;
 use App\Core\Response;
 use App\Core\Validator;
 use App\Services\AuthService;
+use App\Services\AuditService;
 use App\Middleware\CsrfMiddleware;
 
 class AuthController extends Controller
 {
+    private AuditService $auditService;
+
+    public function __construct()
+    {
+        parent::__construct();
+        $this->auditService = new AuditService();
+    }
+
     public function showRegister(Request $request, Response $response): void
     {
         $this->request = $request;
@@ -114,6 +123,11 @@ class AuthController extends Controller
         );
         
         if ($result['success']) {
+            $userId = $this->session->get('user_id');
+            $empresaId = $this->session->get('empresa_id');
+            
+            $this->auditService->logLogin($userId, $empresaId, true);
+            
             $this->json(['success' => true, 'redirect' => '/dashboard']);
         } else {
             $this->json(['success' => false, 'error' => $result['error']], 401);
@@ -124,6 +138,10 @@ class AuthController extends Controller
     {
         $this->request = $request;
         $this->response = $response;
+        
+        if ($this->session->has('user_id')) {
+            $this->auditService->logLogout();
+        }
         
         $auth = new AuthService();
         $auth->logout();

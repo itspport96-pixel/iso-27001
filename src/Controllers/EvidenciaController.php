@@ -9,6 +9,7 @@ use App\Core\TenantContext;
 use App\Core\Validator;
 use App\Repositories\EvidenciaRepository;
 use App\Repositories\ControlRepository;
+use App\Services\AuditService;
 use App\Models\Evidencia;
 use App\Services\FileService;
 
@@ -17,6 +18,7 @@ class EvidenciaController extends Controller
     private EvidenciaRepository $evidenciaRepo;
     private ControlRepository $controlRepo;
     private FileService $fileService;
+    private AuditService $auditService;
 
     public function __construct()
     {
@@ -24,6 +26,7 @@ class EvidenciaController extends Controller
         $this->evidenciaRepo = new EvidenciaRepository();
         $this->controlRepo = new ControlRepository();
         $this->fileService = new FileService();
+        $this->auditService = new AuditService();
     }
 
     public function index(Request $request, Response $response): void
@@ -119,6 +122,18 @@ class EvidenciaController extends Controller
             ]);
 
             if ($evidenciaId) {
+                $this->auditService->log(
+                    'INSERT',
+                    'evidencias',
+                    $evidenciaId,
+                    null,
+                    [
+                        'control_id' => (int)$request->post('control_id'),
+                        'nombre_archivo' => $uploadResult['nombre_original'],
+                        'estado_validacion' => 'pendiente'
+                    ]
+                );
+
                 $this->session->flash('success', 'Evidencia subida exitosamente');
                 $response->redirect('/evidencias');
             } else {
@@ -162,6 +177,8 @@ class EvidenciaController extends Controller
         $userId = $this->user()['id'];
         TenantContext::getInstance()->setTenant($empresaId);
 
+        $evidenciaAnterior = $this->evidenciaRepo->findWithDetails((int)$id);
+
         $estado = $request->post('estado_validacion');
         $comentarios = $request->post('comentarios');
 
@@ -174,6 +191,20 @@ class EvidenciaController extends Controller
         $result = $evidenciaModel->validar((int)$id, $estado, $comentarios, $userId);
 
         if ($result) {
+            $this->auditService->log(
+                'UPDATE',
+                'evidencias',
+                (int)$id,
+                [
+                    'estado_validacion' => $evidenciaAnterior['estado_validacion']
+                ],
+                [
+                    'estado_validacion' => $estado,
+                    'validado_por' => $userId,
+                    'comentarios' => $comentarios
+                ]
+            );
+
             $this->json(['success' => true, 'message' => 'Evidencia validada']);
         } else {
             $this->json(['success' => false, 'error' => 'Error al validar'], 500);
@@ -197,21 +228,29 @@ class EvidenciaController extends Controller
             return;
         }
 
-        // RESTRICCIÓN: No eliminar evidencias aprobadas
         if ($evidencia['estado_validacion'] === 'aprobada') {
             $this->json(['success' => false, 'error' => 'No se puede eliminar una evidencia aprobada. Las evidencias aprobadas son inmutables por cumplimiento normativo.'], 403);
             return;
         }
 
-        // Eliminar archivo físico
         if (file_exists($evidencia['ruta_archivo'])) {
             unlink($evidencia['ruta_archivo']);
         }
 
-        // Eliminar registro
         $result = $evidenciaModel->delete((int)$id);
 
         if ($result) {
+            $this->auditService->log(
+                'DELETE',
+                'evidencias',
+                (int)$id,
+                [
+                    'nombre_archivo' => $evidencia['nombre_archivo'],
+                    'estado_validacion' => $evidencia['estado_validacion']
+                ],
+                null
+            );
+
             $this->json(['success' => true, 'message' => 'Evidencia eliminada']);
         } else {
             $this->json(['success' => false, 'error' => 'Error al eliminar'], 500);

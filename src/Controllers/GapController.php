@@ -8,17 +8,20 @@ use App\Core\Response;
 use App\Core\TenantContext;
 use App\Core\Validator;
 use App\Repositories\GapRepository;
+use App\Services\AuditService;
 use App\Models\Gap;
 use App\Models\Accion;
 
 class GapController extends Controller
 {
     private GapRepository $gapRepo;
+    private AuditService $auditService;
 
     public function __construct()
     {
         parent::__construct();
         $this->gapRepo = new GapRepository();
+        $this->auditService = new AuditService();
     }
 
     public function index(Request $request, Response $response): void
@@ -82,6 +85,12 @@ class GapController extends Controller
         ];
         
         if (!$validator->validate($rules)) {
+            $errores = $validator->errors();
+            $mensaje = 'Errores de validación: ';
+            foreach ($errores as $campo => $error) {
+                $mensaje .= $error[0] . '; ';
+            }
+            $this->session->flash('error', rtrim($mensaje, '; '));
             $response->redirect('/gaps/create');
             return;
         }
@@ -89,6 +98,7 @@ class GapController extends Controller
         $soaId = (int)$request->post('soa_id');
 
         if (!$this->gapRepo->validarSoaPermiteGap($soaId)) {
+            $this->session->flash('error', 'El control seleccionado no permite crear un GAP o ya tiene uno activo');
             $response->redirect('/gaps/create');
             return;
         }
@@ -110,7 +120,19 @@ class GapController extends Controller
                 throw new \Exception('Error al crear GAP');
             }
 
-            // Recibir arrays PHP directamente
+            $this->auditService->log(
+                'INSERT',
+                'gap_items',
+                $gapId,
+                null,
+                [
+                    'soa_id' => $soaId,
+                    'brecha' => $request->post('brecha'),
+                    'impacto' => $request->post('impacto'),
+                    'prioridad' => $request->post('prioridad')
+                ]
+            );
+
             $descripciones = $_POST['accion_descripcion'] ?? [];
             $responsables = $_POST['accion_responsable'] ?? [];
             $fechas = $_POST['accion_fecha'] ?? [];
@@ -131,10 +153,13 @@ class GapController extends Controller
 
             $this->gapRepo->commit();
 
+            $this->session->flash('success', 'GAP creado exitosamente');
             $response->redirect('/gaps/' . $gapId);
 
         } catch (\Exception $e) {
+            error_log("GAP Store - Exception: " . $e->getMessage());
             $this->gapRepo->rollback();
+            $this->session->flash('error', 'Error al crear el GAP: ' . $e->getMessage());
             $response->redirect('/gaps/create');
         }
     }
@@ -186,6 +211,8 @@ class GapController extends Controller
             return;
         }
 
+        $gapAnterior = $this->gapRepo->findWithDetails((int)$id);
+
         $gapModel = new Gap();
         $result = $gapModel->update((int)$id, [
             'brecha' => $request->post('brecha'),
@@ -195,6 +222,22 @@ class GapController extends Controller
         ]);
 
         if ($result) {
+            $this->auditService->log(
+                'UPDATE',
+                'gap_items',
+                (int)$id,
+                [
+                    'brecha' => $gapAnterior['brecha'],
+                    'impacto' => $gapAnterior['impacto'],
+                    'prioridad' => $gapAnterior['prioridad']
+                ],
+                [
+                    'brecha' => $request->post('brecha'),
+                    'impacto' => $request->post('impacto'),
+                    'prioridad' => $request->post('prioridad')
+                ]
+            );
+
             $this->json(['success' => true, 'message' => 'GAP actualizado']);
         } else {
             $this->json(['success' => false, 'error' => 'Error al actualizar'], 500);
@@ -210,10 +253,23 @@ class GapController extends Controller
         $empresaId = $this->user()['empresa_id'];
         TenantContext::getInstance()->setTenant($empresaId);
 
+        $gapAnterior = $this->gapRepo->findWithDetails((int)$id);
+
         $gapModel = new Gap();
         $result = $gapModel->softDelete((int)$id);
 
         if ($result) {
+            $this->auditService->log(
+                'DELETE',
+                'gap_items',
+                (int)$id,
+                [
+                    'brecha' => $gapAnterior['brecha'],
+                    'estado_gap' => $gapAnterior['estado_gap']
+                ],
+                null
+            );
+
             $this->json(['success' => true, 'message' => 'GAP eliminado']);
         } else {
             $this->json(['success' => false, 'error' => 'Error al eliminar'], 500);

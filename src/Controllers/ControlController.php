@@ -8,18 +8,21 @@ use App\Core\Response;
 use App\Core\TenantContext;
 use App\Repositories\ControlRepository;
 use App\Repositories\SOARepository;
+use App\Services\AuditService;
 use App\Middleware\AuthMiddleware;
 
 class ControlController extends Controller
 {
     private ControlRepository $controlRepo;
     private SOARepository $soaRepo;
+    private AuditService $auditService;
 
     public function __construct()
     {
         parent::__construct();
         $this->controlRepo = new ControlRepository();
         $this->soaRepo = new SOARepository();
+        $this->auditService = new AuditService();
     }
 
     public function index(Request $request, Response $response): void
@@ -95,6 +98,8 @@ class ControlController extends Controller
             return;
         }
 
+        $soaAnterior = $this->soaRepo->findById((int)$id);
+
         $data = [
             'estado' => $estado,
             'justificacion' => $justificacion,
@@ -106,6 +111,22 @@ class ControlController extends Controller
         $result = $soaModel->update((int)$id, $data);
 
         if ($result) {
+            $this->auditService->log(
+                'UPDATE',
+                'soa_entries',
+                (int)$id,
+                [
+                    'estado' => $soaAnterior['estado'],
+                    'aplicable' => $soaAnterior['aplicable'],
+                    'justificacion' => $soaAnterior['justificacion']
+                ],
+                [
+                    'estado' => $estado,
+                    'aplicable' => $aplicable ? 1 : 0,
+                    'justificacion' => $justificacion
+                ]
+            );
+
             $this->json(['success' => true, 'message' => 'Control actualizado']);
         } else {
             $this->json(['success' => false, 'error' => 'Error al actualizar'], 500);
