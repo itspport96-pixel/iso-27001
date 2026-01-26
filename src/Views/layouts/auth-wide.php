@@ -40,7 +40,7 @@
 </head>
 <body class="h-full font-sans antialiased">
     <div class="min-h-full flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-	<div class="max-w-md w-full space-y-8">
+        <div class="max-w-4xl w-full space-y-8">
             <!-- Logo y título -->
             <div class="text-center">
                 <div class="mx-auto h-16 w-16 flex items-center justify-center rounded-full bg-primary-600 shadow-lg">

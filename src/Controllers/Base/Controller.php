@@ -20,7 +20,7 @@ abstract class Controller
         $this->auth = new AuthService();
     }
 
-    protected function view(string $view, array $data = []): void
+    protected function view(string $view, array $data = [], ?string $layout = null): void
     {
         extract($data);
         
@@ -34,6 +34,16 @@ abstract class Controller
         ob_start();
         include $viewPath;
         $content = ob_get_clean();
+        
+        // Si se especifica un layout, usarlo
+        if ($layout) {
+            $layoutPath = __DIR__ . '/../../Views/layouts/' . $layout . '.php';
+            if (file_exists($layoutPath)) {
+                ob_start();
+                include $layoutPath;
+                $content = ob_get_clean();
+            }
+        }
         
         $this->response->html($content);
     }

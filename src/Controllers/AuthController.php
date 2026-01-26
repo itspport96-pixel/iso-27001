@@ -30,7 +30,7 @@ class AuthController extends Controller
             return;
         }
         
-        $this->view('auth/register');
+        $this->view('auth/register', [], 'auth-wide');
     }
 
     public function register(Request $request, Response $response): void
@@ -96,7 +96,7 @@ class AuthController extends Controller
             return;
         }
         
-        $this->view('auth/login');
+        $this->view('auth/login', [], 'auth');
     }
 
     public function login(Request $request, Response $response): void

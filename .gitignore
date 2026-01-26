@@ -9,3 +9,7 @@ composer.lock
 .idea/
 *.swp
 *~
+
+
+
+SECURITY.md
