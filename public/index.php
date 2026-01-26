@@ -56,6 +56,7 @@ $router->get('/register', [AuthController::class, 'showRegister']);
 $router->post('/register', [AuthController::class, 'register'], [CsrfMiddleware::class]);
 
 $router->get('/login', [AuthController::class, 'showLogin']);
+$router->post('/login/verify-email', [AuthController::class, 'verifyEmail'], [CsrfMiddleware::class]);
 $router->post('/login', [AuthController::class, 'login'], [CsrfMiddleware::class]);
 
 $router->get('/logout', [AuthController::class, 'logout']);

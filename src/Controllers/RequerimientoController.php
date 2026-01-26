@@ -32,6 +32,8 @@ class RequerimientoController extends Controller
         $empresaId = $this->user()['empresa_id'];
         TenantContext::getInstance()->setTenant($empresaId);
 
+        $this->requerimientoRepo->actualizarTodosLosEstados();
+
         $requerimientos = $this->requerimientoRepo->getWithRequerimientoBase();
         
         foreach ($requerimientos as &$req) {
@@ -55,6 +57,8 @@ class RequerimientoController extends Controller
 
         $empresaId = $this->user()['empresa_id'];
         TenantContext::getInstance()->setTenant($empresaId);
+
+        $this->requerimientoRepo->actualizarEstadoAutomatico((int)$id);
 
         $requerimiento = $this->requerimientoRepo->findWithDetails((int)$id);
 
@@ -85,7 +89,7 @@ class RequerimientoController extends Controller
         $validator = new Validator($request->all());
         
         $rules = [
-            'estado' => 'required|in:pendiente,en_proceso,completado'
+            'observaciones' => 'required|min:10'
         ];
         
         if (!$validator->validate($rules)) {
@@ -96,28 +100,26 @@ class RequerimientoController extends Controller
         $requerimientoAnterior = $this->requerimientoRepo->findWithDetails((int)$id);
 
         $requerimientoModel = new Requerimiento();
-        $result = $requerimientoModel->updateEstado(
-            (int)$id,
-            $request->post('estado'),
-            $request->post('observaciones')
-        );
+        $result = $requerimientoModel->update((int)$id, [
+            'observaciones' => $request->post('observaciones')
+        ]);
 
         if ($result) {
+            $this->requerimientoRepo->actualizarEstadoAutomatico((int)$id);
+
             $this->auditService->log(
                 'UPDATE',
                 'empresa_requerimientos',
                 (int)$id,
                 [
-                    'estado' => $requerimientoAnterior['estado'],
                     'observaciones' => $requerimientoAnterior['observaciones']
                 ],
                 [
-                    'estado' => $request->post('estado'),
                     'observaciones' => $request->post('observaciones')
                 ]
             );
 
-            $this->json(['success' => true, 'message' => 'Requerimiento actualizado']);
+            $this->json(['success' => true, 'message' => 'Observaciones actualizadas. El estado se calcula automáticamente.']);
         } else {
             $this->json(['success' => false, 'error' => 'Error al actualizar'], 500);
         }

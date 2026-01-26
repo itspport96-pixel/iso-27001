@@ -63,7 +63,11 @@ $csrfToken = CsrfMiddleware::getToken();
                     id="btnNext"
                     class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition duration-150"
                 >
-                    Continuar →
+                    <span id="btnNextText">Continuar →</span>
+                    <svg id="btnNextSpinner" class="hidden animate-spin ml-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
                 </button>
             </div>
         </div>
@@ -151,6 +155,8 @@ $csrfToken = CsrfMiddleware::getToken();
 const step1 = document.getElementById('step1');
 const step2 = document.getElementById('step2');
 const btnNext = document.getElementById('btnNext');
+const btnNextText = document.getElementById('btnNextText');
+const btnNextSpinner = document.getElementById('btnNextSpinner');
 const btnBack = document.getElementById('btnBack');
 const step1Indicator = document.getElementById('step1-indicator');
 const step2Indicator = document.getElementById('step2-indicator');
@@ -158,6 +164,7 @@ const step1Label = document.getElementById('step1-label');
 const step2Label = document.getElementById('step2-label');
 const stepConnector = document.getElementById('step-connector');
 const emailInput = document.getElementById('email');
+const messageDiv = document.getElementById('message');
 
 function validateEmail() {
     const email = emailInput.value.trim();
@@ -177,25 +184,54 @@ function updateNextButton() {
 emailInput.addEventListener('input', updateNextButton);
 
 btnNext.addEventListener('click', function() {
-    if (validateEmail()) {
-        step1.classList.add('hidden');
-        step2.classList.remove('hidden');
-        
-        step1Indicator.classList.remove('bg-primary-600', 'text-white');
-        step1Indicator.classList.add('bg-green-500', 'text-white');
-        step1Label.classList.remove('text-gray-900');
-        step1Label.classList.add('text-green-600');
-        
-        step2Indicator.classList.remove('bg-gray-300', 'text-gray-600');
-        step2Indicator.classList.add('bg-primary-600', 'text-white');
-        step2Label.classList.remove('text-gray-500');
-        step2Label.classList.add('text-gray-900');
-        
-        stepConnector.classList.remove('bg-gray-300');
-        stepConnector.classList.add('bg-green-500');
-        
-        document.getElementById('password').focus();
+    if (!validateEmail()) {
+        return;
     }
+    
+    btnNext.disabled = true;
+    btnNextText.textContent = 'Verificando...';
+    btnNextSpinner.classList.remove('hidden');
+    messageDiv.classList.add('hidden');
+    
+    const formData = new FormData();
+    formData.append('email', emailInput.value);
+    formData.append('csrf_token', '<?= $csrfToken ?>');
+    
+    fetch('/login/verify-email', {
+        method: 'POST',
+        body: formData
+    })
+    .then(res => res.json())
+    .then(result => {
+        if (result.success) {
+            step1.classList.add('hidden');
+            step2.classList.remove('hidden');
+            
+            step1Indicator.classList.remove('bg-primary-600', 'text-white');
+            step1Indicator.classList.add('bg-green-500', 'text-white');
+            step1Label.classList.remove('text-gray-900');
+            step1Label.classList.add('text-green-600');
+            
+            step2Indicator.classList.remove('bg-gray-300', 'text-gray-600');
+            step2Indicator.classList.add('bg-primary-600', 'text-white');
+            step2Label.classList.remove('text-gray-500');
+            step2Label.classList.add('text-gray-900');
+            
+            stepConnector.classList.remove('bg-gray-300');
+            stepConnector.classList.add('bg-green-500');
+            
+            document.getElementById('password').focus();
+        }
+        
+        btnNext.disabled = false;
+        btnNextText.textContent = 'Continuar →';
+        btnNextSpinner.classList.add('hidden');
+    })
+    .catch(err => {
+        btnNext.disabled = false;
+        btnNextText.textContent = 'Continuar →';
+        btnNextSpinner.classList.add('hidden');
+    });
 });
 
 btnBack.addEventListener('click', function() {
@@ -215,6 +251,8 @@ btnBack.addEventListener('click', function() {
     stepConnector.classList.remove('bg-green-500');
     stepConnector.classList.add('bg-gray-300');
     
+    messageDiv.classList.add('hidden');
+    document.getElementById('password').value = '';
     emailInput.focus();
 });
 
@@ -226,7 +264,6 @@ document.getElementById('loginForm').addEventListener('submit', function(e) {
     const button = this.querySelector('button[type="submit"]');
     const buttonText = document.getElementById('buttonText');
     const buttonSpinner = document.getElementById('buttonSpinner');
-    const messageDiv = document.getElementById('message');
     
     button.disabled = true;
     buttonText.textContent = 'Iniciando sesión...';

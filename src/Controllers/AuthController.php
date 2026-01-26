@@ -99,6 +99,39 @@ class AuthController extends Controller
         $this->view('auth/login', [], 'auth');
     }
 
+    public function verifyEmail(Request $request, Response $response): void
+    {
+        $this->request = $request;
+        $this->response = $response;
+        
+        $validator = new Validator($request->all());
+        
+        $rules = [
+            'email' => 'required|email'
+        ];
+        
+        if (!$validator->validate($rules)) {
+            $this->json(['success' => false, 'error' => 'Email inválido'], 400);
+            return;
+        }
+        
+        $email = $request->post('email');
+        
+        $db = \App\Core\Database::getInstance()->getConnection();
+        $sql = "SELECT id FROM usuarios WHERE email = :email AND deleted_at IS NULL LIMIT 1";
+        $stmt = $db->prepare($sql);
+        $stmt->bindValue(':email', $email);
+        $stmt->execute();
+        
+        $usuario = $stmt->fetch(\PDO::FETCH_ASSOC);
+        
+        if ($usuario) {
+            $this->json(['success' => true, 'exists' => true]);
+        } else {
+            $this->json(['success' => true, 'exists' => false]);
+        }
+    }
+
     public function login(Request $request, Response $response): void
     {
         $this->request = $request;

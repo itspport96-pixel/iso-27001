@@ -73,6 +73,7 @@ class RequerimientoRepository extends Repository
         
         $sql = "SELECT c.id, c.codigo, c.nombre, c.descripcion,
                 d.nombre as dominio_nombre,
+                s.id as soa_id,
                 s.estado as estado_implementacion,
                 s.aplicable
                 FROM requerimientos_controles rc
@@ -151,5 +152,69 @@ class RequerimientoRepository extends Repository
             'controles_implementados' => $implementados,
             'porcentaje' => $porcentaje
         ];
+    }
+
+    public function actualizarEstadoAutomatico(int $empresaRequerimientoId): bool
+    {
+        $requerimiento = $this->findById($empresaRequerimientoId);
+        if (!$requerimiento) {
+            return false;
+        }
+
+        $progreso = $this->calcularProgresoRequerimiento($requerimiento['requerimiento_id']);
+        
+        $nuevoEstado = 'pendiente';
+        $fechaInicio = $requerimiento['fecha_inicio'];
+        $fechaCompletado = null;
+        
+        if ($progreso['porcentaje'] == 100) {
+            $nuevoEstado = 'completado';
+            $fechaCompletado = date('Y-m-d');
+            if (!$fechaInicio) {
+                $fechaInicio = date('Y-m-d');
+            }
+        } elseif ($progreso['porcentaje'] > 0) {
+            $nuevoEstado = 'en_proceso';
+            if (!$fechaInicio) {
+                $fechaInicio = date('Y-m-d');
+            }
+        }
+        
+        $sql = "UPDATE {$this->table} 
+                SET estado = :estado,
+                    fecha_inicio = :fecha_inicio,
+                    fecha_completado = :fecha_completado,
+                    updated_at = NOW()
+                WHERE id = :id";
+        
+        $params = [
+            ':id' => $empresaRequerimientoId,
+            ':estado' => $nuevoEstado,
+            ':fecha_inicio' => $fechaInicio,
+            ':fecha_completado' => $fechaCompletado
+        ];
+        
+        if ($this->usesTenant) {
+            $tenantId = TenantContext::getInstance()->getTenant();
+            $sql .= " AND empresa_id = :empresa_id";
+            $params[':empresa_id'] = $tenantId;
+        }
+        
+        $stmt = $this->db->prepare($sql);
+        
+        foreach ($params as $key => $value) {
+            $stmt->bindValue($key, $value);
+        }
+        
+        return $stmt->execute();
+    }
+
+    public function actualizarTodosLosEstados(): void
+    {
+        $requerimientos = $this->getWithRequerimientoBase();
+        
+        foreach ($requerimientos as $req) {
+            $this->actualizarEstadoAutomatico($req['id']);
+        }
     }
 }

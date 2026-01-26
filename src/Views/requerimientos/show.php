@@ -14,6 +14,9 @@ $csrfToken = CsrfMiddleware::getToken();
 <hr>
 
 <h3>Estado del Requerimiento</h3>
+<p style="background: #e3f2fd; padding: 10px; border-left: 4px solid #2196f3;">
+    <strong>Nota:</strong> El estado de este requerimiento se calcula automáticamente basado en el estado de implementación de sus controles asociados.
+</p>
 <p><strong>Estado:</strong> <?= htmlspecialchars(ucfirst(str_replace('_', ' ', $requerimiento['estado']))) ?></p>
 <p><strong>Fecha Inicio:</strong> <?= htmlspecialchars($requerimiento['fecha_inicio'] ?? 'No iniciado') ?></p>
 <p><strong>Fecha Completado:</strong> <?= htmlspecialchars($requerimiento['fecha_completado'] ?? 'No completado') ?></p>
@@ -24,23 +27,15 @@ $csrfToken = CsrfMiddleware::getToken();
 
 <hr>
 
-<h3>Actualizar Estado</h3>
+<h3>Actualizar Observaciones</h3>
 <form id="updateForm">
     <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
     
-    <label>Estado:</label><br>
-    <select name="estado" required>
-        <option value="pendiente" <?= ($requerimiento['estado'] == 'pendiente') ? 'selected' : '' ?>>Pendiente</option>
-        <option value="en_proceso" <?= ($requerimiento['estado'] == 'en_proceso') ? 'selected' : '' ?>>En Proceso</option>
-        <option value="completado" <?= ($requerimiento['estado'] == 'completado') ? 'selected' : '' ?>>Completado</option>
-    </select>
+    <label>Observaciones (mínimo 10 caracteres):</label><br>
+    <textarea name="observaciones" rows="4" cols="60" required minlength="10"><?= htmlspecialchars($requerimiento['observaciones'] ?? '') ?></textarea>
     <br><br>
     
-    <label>Observaciones:</label><br>
-    <textarea name="observaciones" rows="4" cols="60"><?= htmlspecialchars($requerimiento['observaciones'] ?? '') ?></textarea>
-    <br><br>
-    
-    <button type="submit">Actualizar</button>
+    <button type="submit">Actualizar Observaciones</button>
 </form>
 
 <hr>
@@ -64,6 +59,7 @@ $csrfToken = CsrfMiddleware::getToken();
                 <th>Dominio</th>
                 <th>Aplicable</th>
                 <th>Estado</th>
+                <th>Acciones</th>
             </tr>
         </thead>
         <tbody>
@@ -74,6 +70,13 @@ $csrfToken = CsrfMiddleware::getToken();
                     <td><?= htmlspecialchars($control['dominio_nombre']) ?></td>
                     <td><?= $control['aplicable'] ? 'Sí' : 'No' ?></td>
                     <td><?= htmlspecialchars(ucfirst(str_replace('_', ' ', $control['estado_implementacion'] ?? 'No evaluado'))) ?></td>
+                    <td>
+                        <?php if ($control['soa_id']): ?>
+                            <a href="/controles/<?= $control['soa_id'] ?>">Editar Control</a>
+                        <?php else: ?>
+                            <span style="color: #999;">No disponible</span>
+                        <?php endif; ?>
+                    </td>
                 </tr>
             <?php endforeach; ?>
         </tbody>
@@ -101,14 +104,14 @@ document.getElementById('updateForm').addEventListener('submit', function(e) {
     .then(res => res.json())
     .then(result => {
         if (result.success) {
-            document.getElementById('message').innerHTML = '<p>Requerimiento actualizado exitosamente</p>';
+            document.getElementById('message').innerHTML = '<p style="color: green;">' + result.message + '</p>';
             setTimeout(() => window.location.reload(), 1500);
         } else {
-            document.getElementById('message').innerHTML = '<p>Error: ' + (result.error || 'Error desconocido') + '</p>';
+            document.getElementById('message').innerHTML = '<p style="color: red;">Error: ' + (result.error || 'Error desconocido') + '</p>';
         }
     })
     .catch(err => {
-        document.getElementById('message').innerHTML = '<p>Error de conexión</p>';
+        document.getElementById('message').innerHTML = '<p style="color: red;">Error de conexión</p>';
     });
 });
 </script>
