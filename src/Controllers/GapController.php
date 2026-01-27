@@ -46,7 +46,8 @@ class GapController extends Controller
         $this->view('gap/index', [
             'gaps' => $gaps,
             'estadisticas' => $estadisticas,
-            'filtro_prioridad' => $prioridad
+            'filtro_prioridad' => $prioridad,
+            'user' => $this->user()
         ]);
     }
 
@@ -62,7 +63,8 @@ class GapController extends Controller
         $controles = $this->gapRepo->getControlesAplicablesNoImplementados();
 
         $this->view('gap/create', [
-            'controles' => $controles
+            'controles' => $controles,
+            'user' => $this->user()
         ]);
     }
 
@@ -185,7 +187,8 @@ class GapController extends Controller
 
         $this->view('gap/show', [
             'gap' => $gap,
-            'acciones' => $acciones
+            'acciones' => $acciones,
+            'user' => $this->user()
         ]);
     }
 

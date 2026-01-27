@@ -51,7 +51,8 @@ class EvidenciaController extends Controller
         $this->view('evidencias/index', [
             'evidencias' => $evidencias,
             'estadisticas' => $estadisticas,
-            'filtro_estado' => $estado
+            'filtro_estado' => $estado,
+            'user' => $this->user()
         ]);
     }
 
@@ -67,7 +68,8 @@ class EvidenciaController extends Controller
         $controles = $this->controlRepo->getAllWithDominio();
 
         $this->view('evidencias/create', [
-            'controles' => $controles
+            'controles' => $controles,
+            'user' => $this->user()
         ]);
     }
 
@@ -163,7 +165,8 @@ class EvidenciaController extends Controller
         }
 
         $this->view('evidencias/show', [
-            'evidencia' => $evidencia
+            'evidencia' => $evidencia,
+            'user' => $this->user()
         ]);
     }
 

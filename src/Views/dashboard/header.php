@@ -29,12 +29,12 @@
                 <div class="relative">
                     <div class="flex items-center space-x-3">
                         <div class="text-right hidden sm:block">
-                            <p class="text-sm font-medium text-gray-900"><?= htmlspecialchars($user['nombre']) ?></p>
-                            <p class="text-xs text-gray-500"><?= htmlspecialchars(ucfirst(str_replace('_', ' ', $user['rol']))) ?></p>
+                            <p class="text-sm font-medium text-gray-900"><?= isset($user['nombre']) ? htmlspecialchars($user['nombre']) : 'Usuario' ?></p>
+                            <p class="text-xs text-gray-500"><?= isset($user['rol']) ? htmlspecialchars(ucfirst(str_replace('_', ' ', $user['rol']))) : 'Guest' ?></p>
                         </div>
                         <div class="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center">
                             <span class="text-sm font-medium text-primary-700">
-                                <?= strtoupper(substr($user['nombre'], 0, 2)) ?>
+                                <?= isset($user['nombre']) ? strtoupper(substr($user['nombre'], 0, 2)) : 'U' ?>
                             </span>
                         </div>
                     </div>
