@@ -41,7 +41,8 @@ class AuditController extends Controller
         $this->view('audit/index', [
             'logs' => $logs,
             'estadisticas' => $estadisticas,
-            'filtros' => $filtros
+            'filtros' => $filtros,
+            'user' => $this->user()
         ]);
     }
 
@@ -61,6 +62,9 @@ class AuditController extends Controller
             return;
         }
 
-        $this->view('audit/show', ['log' => $log]);
+        $this->view('audit/show', [
+            'log' => $log,
+            'user' => $this->user()
+        ]);
     }
 }
