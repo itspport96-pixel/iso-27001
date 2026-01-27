@@ -72,7 +72,7 @@
         <div class="flex-shrink-0 flex border-t border-gray-200 p-4">
             <div class="flex-shrink-0 w-full">
                 <p class="text-xs text-center text-gray-500">
-                    ISO 27001 Platform v2.0
+                    ISO 27001 Platform v2.2.0
                 </p>
             </div>
         </div>
