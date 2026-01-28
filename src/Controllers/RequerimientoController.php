@@ -45,7 +45,8 @@ class RequerimientoController extends Controller
 
         $this->view('requerimientos/index', [
             'requerimientos' => $requerimientos,
-            'estadisticas' => $estadisticas
+            'estadisticas' => $estadisticas,
+            'user' => $this->user()
         ]);
     }
 
@@ -73,7 +74,8 @@ class RequerimientoController extends Controller
         $this->view('requerimientos/show', [
             'requerimiento' => $requerimiento,
             'controles' => $controles,
-            'progreso' => $progreso
+            'progreso' => $progreso,
+            'user' => $this->user()
         ]);
     }
 

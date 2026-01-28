@@ -53,7 +53,8 @@ class ControlController extends Controller
             'estadisticas' => $estadisticas,
             'filtro_dominio' => $dominioId,
             'filtro_estado' => $estado,
-            'filtro_aplicable' => $aplicable
+            'filtro_aplicable' => $aplicable,
+            'user' => $this->user()
         ]);
     }
 
@@ -76,7 +77,8 @@ class ControlController extends Controller
         $soaDetalle = $this->soaRepo->findByControlId($soa['control_id']);
 
         $this->view('controles/show', [
-            'soa' => $soaDetalle
+            'soa' => $soaDetalle,
+            'user' => $this->user()
         ]);
     }
 
