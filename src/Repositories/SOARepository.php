@@ -40,7 +40,7 @@ class SOARepository extends Repository
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function getByFiltros($dominioId = null, $estado = null, $aplicable = null): array
+    public function getByFiltros($dominioId = null, $estado = null, $aplicable = null, $busqueda = null): array
     {
         $sql = "SELECT s.*, c.codigo, c.nombre as control_nombre, 
                 d.nombre as dominio_nombre 
@@ -72,6 +72,13 @@ class SOARepository extends Repository
             $params[':aplicable'] = (int)$aplicable;
         }
         
+        if ($busqueda) {
+            $sql .= " AND (c.codigo LIKE :busqueda1 OR c.nombre LIKE :busqueda2 OR d.nombre LIKE :busqueda3)";
+            $params[':busqueda1'] = '%' . $busqueda . '%';
+            $params[':busqueda2'] = '%' . $busqueda . '%';
+            $params[':busqueda3'] = '%' . $busqueda . '%';
+        }
+        
         $sql .= " ORDER BY c.codigo ASC";
         
         $stmt = $this->db->prepare($sql);
@@ -83,6 +90,111 @@ class SOARepository extends Repository
         $stmt->execute();
         
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function getWithPagination(int $page, int $perPage, array $filtros): array
+    {
+        $offset = ($page - 1) * $perPage;
+        
+        $sql = "SELECT s.*, c.codigo, c.nombre as control_nombre, 
+                d.nombre as dominio_nombre 
+                FROM {$this->table} s 
+                INNER JOIN controles c ON s.control_id = c.id 
+                INNER JOIN controles_dominio d ON c.dominio_id = d.id 
+                WHERE 1=1";
+        
+        $params = [];
+        
+        if ($this->usesTenant) {
+            $tenantId = TenantContext::getInstance()->getTenant();
+            $sql .= " AND s.empresa_id = :empresa_id";
+            $params[':empresa_id'] = $tenantId;
+        }
+        
+        if (!empty($filtros['dominio'])) {
+            $sql .= " AND c.dominio_id = :dominio_id";
+            $params[':dominio_id'] = $filtros['dominio'];
+        }
+        
+        if (!empty($filtros['estado'])) {
+            $sql .= " AND s.estado = :estado";
+            $params[':estado'] = $filtros['estado'];
+        }
+        
+        if (isset($filtros['aplicable']) && $filtros['aplicable'] !== '') {
+            $sql .= " AND s.aplicable = :aplicable";
+            $params[':aplicable'] = (int)$filtros['aplicable'];
+        }
+        
+        if (!empty($filtros['busqueda'])) {
+            $sql .= " AND (c.codigo LIKE :busqueda1 OR c.nombre LIKE :busqueda2 OR d.nombre LIKE :busqueda3)";
+            $params[':busqueda1'] = '%' . $filtros['busqueda'] . '%';
+            $params[':busqueda2'] = '%' . $filtros['busqueda'] . '%';
+            $params[':busqueda3'] = '%' . $filtros['busqueda'] . '%';
+        }
+        
+        $sql .= " ORDER BY c.codigo ASC LIMIT :limit OFFSET :offset";
+        
+        $stmt = $this->db->prepare($sql);
+        
+        foreach ($params as $key => $value) {
+            $stmt->bindValue($key, $value);
+        }
+        
+        $stmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+        
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function countWithFilters(array $filtros): int
+    {
+        $sql = "SELECT COUNT(*) as total
+                FROM {$this->table} s 
+                INNER JOIN controles c ON s.control_id = c.id 
+                INNER JOIN controles_dominio d ON c.dominio_id = d.id 
+                WHERE 1=1";
+        
+        $params = [];
+        
+        if ($this->usesTenant) {
+            $tenantId = TenantContext::getInstance()->getTenant();
+            $sql .= " AND s.empresa_id = :empresa_id";
+            $params[':empresa_id'] = $tenantId;
+        }
+        
+        if (!empty($filtros['dominio'])) {
+            $sql .= " AND c.dominio_id = :dominio_id";
+            $params[':dominio_id'] = $filtros['dominio'];
+        }
+        
+        if (!empty($filtros['estado'])) {
+            $sql .= " AND s.estado = :estado";
+            $params[':estado'] = $filtros['estado'];
+        }
+        
+        if (isset($filtros['aplicable']) && $filtros['aplicable'] !== '') {
+            $sql .= " AND s.aplicable = :aplicable";
+            $params[':aplicable'] = (int)$filtros['aplicable'];
+        }
+        
+        if (!empty($filtros['busqueda'])) {
+            $sql .= " AND (c.codigo LIKE :busqueda1 OR c.nombre LIKE :busqueda2 OR d.nombre LIKE :busqueda3)";
+            $params[':busqueda1'] = '%' . $filtros['busqueda'] . '%';
+            $params[':busqueda2'] = '%' . $filtros['busqueda'] . '%';
+            $params[':busqueda3'] = '%' . $filtros['busqueda'] . '%';
+        }
+        
+        $stmt = $this->db->prepare($sql);
+        
+        foreach ($params as $key => $value) {
+            $stmt->bindValue($key, $value);
+        }
+        
+        $stmt->execute();
+        
+        return (int)$stmt->fetchColumn();
     }
 
     public function getByEstado(string $estado): array

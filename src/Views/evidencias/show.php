@@ -309,7 +309,7 @@ include __DIR__ . '/../components/form/textarea.php';
                                     </svg>
                                     Descargar archivo
                                 </a>
-                                <a href="/controles/<?= $evidencia['control_id'] ?>" class="flex items-center text-sm text-primary-600 hover:text-primary-700">
+				<a href="/controles/<?= $evidencia['soa_id'] ?>" class="flex items-center text-sm text-primary-600 hover:text-primary-700">
                                     <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
                                     </svg>

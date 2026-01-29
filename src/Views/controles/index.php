@@ -148,49 +148,73 @@ include __DIR__ . '/../components/progress-bar.php';
                     </p>
                 </div>
 
-                <!-- Filtros -->
+                <!-- Búsqueda y Filtros -->
                 <div class="bg-white shadow-sm rounded-lg border border-gray-200 p-4 mb-6">
-                    <form method="GET" action="/controles" class="grid grid-cols-1 gap-4 sm:grid-cols-4">
+                    <form method="GET" action="/controles" id="filterForm" class="space-y-4">
+                        <!-- Búsqueda -->
                         <div>
-                            <label for="filter_dominio" class="block text-sm font-medium text-gray-700 mb-1">Dominio</label>
-                            <select name="dominio" id="filter_dominio" class="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm">
-                                <option value="">Todos</option>
-                                <?php foreach ($dominios as $dominio): ?>
-                                    <option value="<?= $dominio['id'] ?>" <?= ($filtro_dominio == $dominio['id']) ? 'selected' : '' ?>>
-                                        <?= htmlspecialchars($dominio['codigo']) ?> - <?= htmlspecialchars($dominio['nombre']) ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
+                            <label for="busqueda" class="block text-sm font-medium text-gray-700 mb-1">Búsqueda</label>
+                            <input 
+                                type="text" 
+                                name="busqueda" 
+                                id="busqueda" 
+                                value="<?= htmlspecialchars($filtro_busqueda ?? '') ?>"
+                                placeholder="Buscar por código o nombre del control..."
+                                class="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
+                            >
+                            <p class="mt-1 text-xs text-gray-500">Escribe para buscar en tiempo real</p>
                         </div>
+                        
+                        <!-- Filtros -->
+                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-4">
+                            <div>
+                                <label for="filter_dominio" class="block text-sm font-medium text-gray-700 mb-1">Dominio</label>
+                                <select name="dominio" id="filter_dominio" class="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm">
+                                    <option value="">Todos</option>
+                                    <?php foreach ($dominios as $dominio): ?>
+                                        <option value="<?= $dominio['id'] ?>" <?= ($filtro_dominio == $dominio['id']) ? 'selected' : '' ?>>
+                                            <?= htmlspecialchars($dominio['codigo']) ?> - <?= htmlspecialchars($dominio['nombre']) ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
 
-                        <div>
-                            <label for="filter_estado" class="block text-sm font-medium text-gray-700 mb-1">Estado</label>
-                            <select name="estado" id="filter_estado" class="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm">
-                                <option value="">Todos</option>
-                                <option value="no_implementado" <?= ($filtro_estado === 'no_implementado') ? 'selected' : '' ?>>No Implementado</option>
-                                <option value="parcial" <?= ($filtro_estado === 'parcial') ? 'selected' : '' ?>>Parcial</option>
-                                <option value="implementado" <?= ($filtro_estado === 'implementado') ? 'selected' : '' ?>>Implementado</option>
-                            </select>
-                        </div>
+                            <div>
+                                <label for="filter_estado" class="block text-sm font-medium text-gray-700 mb-1">Estado</label>
+                                <select name="estado" id="filter_estado" class="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm">
+                                    <option value="">Todos</option>
+                                    <option value="no_implementado" <?= ($filtro_estado === 'no_implementado') ? 'selected' : '' ?>>No Implementado</option>
+                                    <option value="parcial" <?= ($filtro_estado === 'parcial') ? 'selected' : '' ?>>Parcial</option>
+                                    <option value="implementado" <?= ($filtro_estado === 'implementado') ? 'selected' : '' ?>>Implementado</option>
+                                </select>
+                            </div>
 
-                        <div>
-                            <label for="filter_aplicable" class="block text-sm font-medium text-gray-700 mb-1">Aplicabilidad</label>
-                            <select name="aplicable" id="filter_aplicable" class="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm">
-                                <option value="">Todos</option>
-                                <option value="1" <?= ($filtro_aplicable === '1') ? 'selected' : '' ?>>Aplicables</option>
-                                <option value="0" <?= ($filtro_aplicable === '0') ? 'selected' : '' ?>>No Aplicables</option>
-                            </select>
-                        </div>
+                            <div>
+                                <label for="filter_aplicable" class="block text-sm font-medium text-gray-700 mb-1">Aplicabilidad</label>
+                                <select name="aplicable" id="filter_aplicable" class="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm">
+                                    <option value="">Todos</option>
+                                    <option value="1" <?= ($filtro_aplicable === '1') ? 'selected' : '' ?>>Aplicables</option>
+                                    <option value="0" <?= ($filtro_aplicable === '0') ? 'selected' : '' ?>>No Aplicables</option>
+                                </select>
+                            </div>
 
-                        <div class="flex items-end space-x-2">
-                            <button type="submit" class="flex-1 px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 transition">
-                                Filtrar
-                            </button>
-                            <a href="/controles" class="px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition">
-                                Limpiar
-                            </a>
+                            <div class="flex items-end space-x-2">
+                                <button type="submit" class="flex-1 px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 transition">
+                                    Filtrar
+                                </button>
+                                <a href="/controles" class="px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition">
+                                    Limpiar
+                                </a>
+                            </div>
                         </div>
                     </form>
+                </div>
+
+                <!-- Resultados -->
+                <div class="bg-white shadow-sm rounded-lg border border-gray-200 mb-4 px-6 py-3">
+                    <p class="text-sm text-gray-600">
+                        Mostrando <span class="font-semibold"><?= count($soas) ?></span> de <span class="font-semibold"><?= $total_controles ?></span> controles
+                    </p>
                 </div>
 
                 <!-- Tabla de Controles -->
@@ -255,9 +279,67 @@ include __DIR__ . '/../components/progress-bar.php';
                     </div>
                 </div>
 
+                <!-- Paginación -->
+                <?php if ($total_pages > 1): ?>
+                <div class="bg-white shadow-sm rounded-lg border border-gray-200 px-6 py-4 mt-6">
+                    <div class="flex items-center justify-between">
+                        <div class="text-sm text-gray-600">
+                            Página <span class="font-semibold"><?= $current_page ?></span> de <span class="font-semibold"><?= $total_pages ?></span>
+                        </div>
+                        <div class="flex space-x-2">
+                            <?php if ($current_page > 1): ?>
+                                <a href="?page=<?= $current_page - 1 ?><?= $filtro_dominio ? '&dominio=' . $filtro_dominio : '' ?><?= $filtro_estado ? '&estado=' . $filtro_estado : '' ?><?= $filtro_aplicable !== null ? '&aplicable=' . $filtro_aplicable : '' ?><?= $filtro_busqueda ? '&busqueda=' . urlencode($filtro_busqueda) : '' ?>" 
+                                   class="px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition">
+                                    Anterior
+                                </a>
+                            <?php endif; ?>
+                            
+                            <?php
+                            $start = max(1, $current_page - 2);
+                            $end = min($total_pages, $current_page + 2);
+                            
+                            for ($i = $start; $i <= $end; $i++):
+                            ?>
+                                <a href="?page=<?= $i ?><?= $filtro_dominio ? '&dominio=' . $filtro_dominio : '' ?><?= $filtro_estado ? '&estado=' . $filtro_estado : '' ?><?= $filtro_aplicable !== null ? '&aplicable=' . $filtro_aplicable : '' ?><?= $filtro_busqueda ? '&busqueda=' . urlencode($filtro_busqueda) : '' ?>" 
+                                   class="px-3 py-2 border <?= $i === $current_page ? 'border-primary-500 bg-primary-50 text-primary-600' : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50' ?> rounded-lg text-sm font-medium transition">
+                                    <?= $i ?>
+                                </a>
+                            <?php endfor; ?>
+                            
+                            <?php if ($current_page < $total_pages): ?>
+                                <a href="?page=<?= $current_page + 1 ?><?= $filtro_dominio ? '&dominio=' . $filtro_dominio : '' ?><?= $filtro_estado ? '&estado=' . $filtro_estado : '' ?><?= $filtro_aplicable !== null ? '&aplicable=' . $filtro_aplicable : '' ?><?= $filtro_busqueda ? '&busqueda=' . urlencode($filtro_busqueda) : '' ?>" 
+                                   class="px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition">
+                                    Siguiente
+                                </a>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </div>
+                <?php endif; ?>
+
             </main>
         </div>
+
     </div>
+
+<script>
+// Búsqueda en vivo con debounce
+let searchTimeout;
+const searchInput = document.getElementById('busqueda');
+const filterForm = document.getElementById('filterForm');
+
+searchInput.addEventListener('input', function() {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        filterForm.submit();
+    }, 500);
+});
+
+// Auto-submit en cambio de filtros
+document.getElementById('filter_dominio').addEventListener('change', () => filterForm.submit());
+document.getElementById('filter_estado').addEventListener('change', () => filterForm.submit());
+document.getElementById('filter_aplicable').addEventListener('change', () => filterForm.submit());
+</script>
 
 </body>
 </html>

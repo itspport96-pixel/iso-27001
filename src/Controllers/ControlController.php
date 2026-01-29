@@ -34,15 +34,22 @@ class ControlController extends Controller
         $empresaId = $this->user()['empresa_id'];
         TenantContext::getInstance()->setTenant($empresaId);
 
-        $dominioId = $request->get('dominio');
-        $estado = $request->get('estado');
-        $aplicable = $request->get('aplicable');
+        // Obtener parámetros
+        $page = (int)($request->get('page') ?? 1);
+        $perPage = 25;
+        $busqueda = $request->get('busqueda');
+        
+        $filtros = [
+            'dominio' => $request->get('dominio'),
+            'estado' => $request->get('estado'),
+            'aplicable' => $request->get('aplicable'),
+            'busqueda' => $busqueda
+        ];
 
-        if ($dominioId || $estado || $aplicable !== null) {
-            $soas = $this->soaRepo->getByFiltros($dominioId, $estado, $aplicable);
-        } else {
-            $soas = $this->soaRepo->getWithControlInfo();
-        }
+        // Obtener controles con paginación
+        $soas = $this->soaRepo->getWithPagination($page, $perPage, $filtros);
+        $totalControles = $this->soaRepo->countWithFilters($filtros);
+        $totalPages = ceil($totalControles / $perPage);
 
         $dominios = $this->controlRepo->getAllDominios();
         $estadisticas = $this->soaRepo->getEstadisticas();
@@ -51,9 +58,14 @@ class ControlController extends Controller
             'soas' => $soas,
             'dominios' => $dominios,
             'estadisticas' => $estadisticas,
-            'filtro_dominio' => $dominioId,
-            'filtro_estado' => $estado,
-            'filtro_aplicable' => $aplicable,
+            'filtro_dominio' => $filtros['dominio'],
+            'filtro_estado' => $filtros['estado'],
+            'filtro_aplicable' => $filtros['aplicable'],
+            'filtro_busqueda' => $busqueda,
+            'current_page' => $page,
+            'total_pages' => $totalPages,
+            'total_controles' => $totalControles,
+            'per_page' => $perPage,
             'user' => $this->user()
         ]);
     }

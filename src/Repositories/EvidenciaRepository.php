@@ -107,11 +107,13 @@ class EvidenciaRepository extends Repository
     {
         $sql = "SELECT e.*, c.codigo, c.nombre as control_nombre, c.descripcion,
                 d.nombre as dominio_nombre,
+                s.id as soa_id,
                 u1.nombre as subido_por_nombre, u1.email as subido_por_email,
                 u2.nombre as validado_por_nombre, u2.email as validado_por_email
                 FROM {$this->table} e
                 INNER JOIN controles c ON e.control_id = c.id
                 INNER JOIN controles_dominio d ON c.dominio_id = d.id
+                LEFT JOIN soa_entries s ON c.id = s.control_id AND e.empresa_id = s.empresa_id
                 LEFT JOIN usuarios u1 ON e.subido_por = u1.id
                 LEFT JOIN usuarios u2 ON e.validado_por = u2.id
                 WHERE e.id = :id";
