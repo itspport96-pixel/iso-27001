@@ -185,9 +185,14 @@ class GapController extends Controller
         $accionModel = new Accion();
         $acciones = $accionModel->getByGapId((int)$id);
 
+        $evidencias = $this->gapRepo->getEvidenciasDelControl((int)$id);
+        $tieneEvidenciaAprobada = $this->gapRepo->tieneEvidenciaAprobada((int)$id);
+
         $this->view('gap/show', [
             'gap' => $gap,
             'acciones' => $acciones,
+            'evidencias' => $evidencias,
+            'tiene_evidencia_aprobada' => $tieneEvidenciaAprobada,
             'user' => $this->user()
         ]);
     }

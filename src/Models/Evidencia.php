@@ -1,14 +1,12 @@
 <?php
-
 namespace App\Models;
-
 use App\Models\Base\Model;
 
 class Evidencia extends Model
 {
     protected string $table = 'evidencias';
     protected bool $usesTenant = true;
-    protected bool $usesTimestamps = false; // ← CAMBIADO A FALSE
+    protected bool $usesTimestamps = false;
     protected bool $usesSoftDelete = false;
 
     public function getByControlId(int $controlId): array
@@ -61,6 +59,11 @@ class Evidencia extends Model
 
     public function validar(int $id, string $estado, ?string $comentarios = null, ?int $validadoPor = null): bool
     {
+        $evidencia = $this->find($id);
+        if (!$evidencia) {
+            return false;
+        }
+
         $sql = "UPDATE {$this->table} 
                 SET estado_validacion = :estado,
                     comentarios = :comentarios,
@@ -87,6 +90,32 @@ class Evidencia extends Model
             $stmt->bindValue($key, $value);
         }
         
-        return $stmt->execute();
+        $result = $stmt->execute();
+
+        if ($result && isset($evidencia['control_id'])) {
+            $this->recalcularGapsDelControl($evidencia['control_id']);
+        }
+
+        return $result;
+    }
+
+    private function recalcularGapsDelControl(int $controlId): void
+    {
+        $sql = "SELECT DISTINCT g.id 
+                FROM gap_items g
+                INNER JOIN soa_entries s ON g.soa_id = s.id
+                WHERE s.control_id = :control_id
+                AND g.estado_gap = 'activo'";
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->bindValue(':control_id', $controlId, \PDO::PARAM_INT);
+        $stmt->execute();
+        
+        $gaps = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+        
+        $accionModel = new Accion();
+        foreach ($gaps as $gap) {
+            $accionModel->recalcularAvanceGapPublico($gap['id']);
+        }
     }
 }

@@ -86,7 +86,6 @@ class Accion extends Model
 
     public function completar(int $id): bool
     {
-        // Obtener gap_id antes de actualizar
         $accion = $this->find($id);
         if (!$accion) {
             return false;
@@ -103,7 +102,6 @@ class Accion extends Model
         
         $result = $stmt->execute();
         
-        // Recalcular avance del GAP
         if ($result && isset($accion['gap_id'])) {
             $this->recalcularAvanceGap($accion['gap_id']);
         }
@@ -113,16 +111,13 @@ class Accion extends Model
 
     public function update(int $id, array $data): bool
     {
-        // Obtener gap_id antes de actualizar
         $accion = $this->find($id);
         if (!$accion) {
             return false;
         }
         
-        // Llamar al update del padre
         $result = parent::update($id, $data);
         
-        // Recalcular avance del GAP si se actualizó el estado
         if ($result && isset($accion['gap_id']) && isset($data['estado'])) {
             $this->recalcularAvanceGap($accion['gap_id']);
         }
@@ -132,10 +127,8 @@ class Accion extends Model
 
     public function create(array $data): int
     {
-        // Llamar al create del padre
         $id = parent::create($data);
         
-        // Recalcular avance del GAP
         if ($id && isset($data['gap_id'])) {
             $this->recalcularAvanceGap($data['gap_id']);
         }
@@ -145,7 +138,6 @@ class Accion extends Model
 
     public function softDelete(int $id): bool
     {
-        // Obtener gap_id antes de eliminar
         $accion = $this->find($id);
         if (!$accion) {
             return false;
@@ -160,7 +152,6 @@ class Accion extends Model
         
         $result = $stmt->execute();
         
-        // Recalcular avance del GAP
         if ($result && isset($accion['gap_id'])) {
             $this->recalcularAvanceGap($accion['gap_id']);
         }
@@ -168,9 +159,11 @@ class Accion extends Model
         return $result;
     }
 
-    /**
-     * Recalcula el avance de un GAP basado en sus acciones completadas
-     */
+    public function recalcularAvanceGapPublico(int $gapId): void
+    {
+        $this->recalcularAvanceGap($gapId);
+    }
+
     private function recalcularAvanceGap(int $gapId): void
     {
         $sql = "SELECT 
@@ -187,19 +180,55 @@ class Accion extends Model
         $stats = $stmt->fetch(\PDO::FETCH_ASSOC);
         
         $avance = 0;
+        $estadoCertificacion = 'abierto';
+        
         if ($stats && $stats['total_acciones'] > 0) {
             $avance = round(($stats['acciones_completadas'] / $stats['total_acciones']) * 100, 2);
+            
+            $evidenciaEstado = $this->verificarEstadoEvidencia($gapId);
+            
+            if ($avance == 100) {
+                if ($evidenciaEstado === 'aprobada') {
+                    $estadoCertificacion = 'cerrado';
+                } elseif ($evidenciaEstado === 'rechazada') {
+                    $estadoCertificacion = 'rechazado';
+                } else {
+                    $estadoCertificacion = 'en_validacion';
+                }
+            } else {
+                $estadoCertificacion = 'abierto';
+            }
         }
         
-        // Actualizar el avance en la tabla gap_items
         $updateSql = "UPDATE gap_items 
-                      SET avance = :avance, 
+                      SET avance = :avance,
+                          estado_certificacion = :estado_certificacion,
                           updated_at = NOW() 
                       WHERE id = :gap_id";
         
         $updateStmt = $this->db->prepare($updateSql);
         $updateStmt->bindValue(':avance', $avance, \PDO::PARAM_STR);
+        $updateStmt->bindValue(':estado_certificacion', $estadoCertificacion);
         $updateStmt->bindValue(':gap_id', $gapId, \PDO::PARAM_INT);
         $updateStmt->execute();
+    }
+
+    private function verificarEstadoEvidencia(int $gapId): ?string
+    {
+        $sql = "SELECT e.estado_validacion
+                FROM evidencias e
+                INNER JOIN soa_entries s ON e.control_id = s.control_id
+                INNER JOIN gap_items g ON g.soa_id = s.id
+                WHERE g.id = :gap_id
+                ORDER BY e.fecha_validacion DESC
+                LIMIT 1";
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->bindValue(':gap_id', $gapId, \PDO::PARAM_INT);
+        $stmt->execute();
+        
+        $result = $stmt->fetch(\PDO::FETCH_ASSOC);
+        
+        return $result ? $result['estado_validacion'] : null;
     }
 }

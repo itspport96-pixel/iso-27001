@@ -7,6 +7,19 @@ include __DIR__ . '/../components/badge.php';
 include __DIR__ . '/../components/alert.php';
 include __DIR__ . '/../components/card.php';
 include __DIR__ . '/../components/table.php';
+
+// Función helper para estado de certificación en lista
+function getEstadoCertificacionBadgeCompacto(string $estado): array
+{
+    $estados = [
+        'cerrado' => ['text' => 'Cerrado', 'variant' => 'success'],
+        'en_validacion' => ['text' => 'En Validación', 'variant' => 'warning'],
+        'rechazado' => ['text' => 'Rechazado', 'variant' => 'error'],
+        'abierto' => ['text' => 'Abierto', 'variant' => 'gray']
+    ];
+    
+    return $estados[$estado] ?? $estados['abierto'];
+}
 ?>
 
 <!DOCTYPE html>
@@ -166,7 +179,7 @@ include __DIR__ . '/../components/table.php';
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Control / Brecha</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Impacto</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prioridad</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avance</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha Objetivo</th>
                                     <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Opciones</th>
@@ -205,13 +218,11 @@ include __DIR__ . '/../components/table.php';
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <?= getPrioridadBadge($gap['prioridad']) ?>
                                         </td>
-                                        <td class="px-6 py-4">
-                                            <div class="flex items-center">
-                                                <span class="text-sm text-gray-900 mr-2"><?= number_format($gap['avance'], 0) ?>%</span>
-                                                <div class="w-full bg-gray-200 rounded-full h-2 max-w-[100px]">
-                                                    <div class="bg-primary-600 h-2 rounded-full transition-all" style="width: <?= number_format($gap['avance'], 0) ?>%"></div>
-                                                </div>
-                                            </div>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <?php
+                                            $estadoCert = getEstadoCertificacionBadgeCompacto($gap['estado_certificacion']);
+                                            echo renderBadge($estadoCert['text'], $estadoCert['variant']);
+                                            ?>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                             <?= $gap['acciones_completadas'] ?> / <?= $gap['total_acciones'] ?>

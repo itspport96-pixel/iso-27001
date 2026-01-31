@@ -104,7 +104,7 @@ include __DIR__ . '/../components/form/textarea.php';
                                         'control_id',
                                         'Control Asociado',
                                         $controlesOptions,
-                                        '',
+                                        $preselected_control_id ?? '',
                                         [
                                             'required' => true,
                                             'placeholder' => 'Seleccione un control...',
@@ -254,7 +254,7 @@ function mostrarNombreArchivo(input) {
     if (input.files && input.files[0]) {
         const file = input.files[0];
         const sizeMB = (file.size / 1048576).toFixed(2);
-        nombreArchivo.textContent = `📎 ${file.name} (${sizeMB} MB)`;
+        nombreArchivo.textContent = `${file.name} (${sizeMB} MB)`;
     } else {
         nombreArchivo.textContent = '';
     }

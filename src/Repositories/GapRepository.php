@@ -212,4 +212,71 @@ class GapRepository extends Repository
         
         return $soa['aplicable'] == 1 && in_array($soa['estado'], ['no_implementado', 'parcial']);
     }
+
+    public function getEvidenciasDelControl(int $gapId): array
+    {
+        $sql = "SELECT e.id, e.nombre_archivo, e.estado_validacion, e.created_at, e.validado_por,
+                u.nombre as validado_por_nombre
+                FROM evidencias e
+                LEFT JOIN usuarios u ON e.validado_por = u.id
+                WHERE e.control_id = (
+                    SELECT s.control_id 
+                    FROM gap_items g
+                    INNER JOIN soa_entries s ON g.soa_id = s.id
+                    WHERE g.id = :gap_id
+                )";
+        
+        $params = [':gap_id' => $gapId];
+        
+        if ($this->usesTenant) {
+            $tenantId = TenantContext::getInstance()->getTenant();
+            $sql .= " AND e.empresa_id = :empresa_id";
+            $params[':empresa_id'] = $tenantId;
+        }
+        
+        $sql .= " ORDER BY e.created_at DESC";
+        
+        $stmt = $this->db->prepare($sql);
+        
+        foreach ($params as $key => $value) {
+            $stmt->bindValue($key, $value);
+        }
+        
+        $stmt->execute();
+        
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function tieneEvidenciaAprobada(int $gapId): bool
+    {
+        $sql = "SELECT COUNT(*) as total
+                FROM evidencias e
+                WHERE e.control_id = (
+                    SELECT s.control_id 
+                    FROM gap_items g
+                    INNER JOIN soa_entries s ON g.soa_id = s.id
+                    WHERE g.id = :gap_id
+                )
+                AND e.estado_validacion = 'aprobada'";
+        
+        $params = [':gap_id' => $gapId];
+        
+        if ($this->usesTenant) {
+            $tenantId = TenantContext::getInstance()->getTenant();
+            $sql .= " AND e.empresa_id = :empresa_id";
+            $params[':empresa_id'] = $tenantId;
+        }
+        
+        $stmt = $this->db->prepare($sql);
+        
+        foreach ($params as $key => $value) {
+            $stmt->bindValue($key, $value);
+        }
+        
+        $stmt->execute();
+        
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        return $result && $result['total'] > 0;
+    }
 }

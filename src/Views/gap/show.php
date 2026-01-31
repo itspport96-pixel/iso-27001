@@ -2,7 +2,6 @@
 use App\Middleware\CsrfMiddleware;
 $csrfToken = CsrfMiddleware::getToken();
 
-// Incluir componentes
 include __DIR__ . '/../components/badge.php';
 include __DIR__ . '/../components/alert.php';
 include __DIR__ . '/../components/card.php';
@@ -11,6 +10,51 @@ include __DIR__ . '/../components/modal.php';
 include __DIR__ . '/../components/form/input.php';
 include __DIR__ . '/../components/form/select.php';
 include __DIR__ . '/../components/form/textarea.php';
+
+// Función helper para estado de certificación
+function getEstadoCertificacionBadge(string $estado, float $avance): array
+{
+    $estados = [
+        'cerrado' => [
+            'icon' => '<svg class="h-6 w-6" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>',
+            'text' => 'GAP Cerrado',
+            'description' => 'Acciones completadas y evidencia aprobada',
+            'bgColor' => 'bg-green-50',
+            'borderColor' => 'border-green-200',
+            'textColor' => 'text-green-800',
+            'iconColor' => 'text-green-600'
+        ],
+        'en_validacion' => [
+            'icon' => '<svg class="h-6 w-6" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/></svg>',
+            'text' => 'En Validación',
+            'description' => 'Acciones completadas - Pendiente de evidencia aprobada',
+            'bgColor' => 'bg-yellow-50',
+            'borderColor' => 'border-yellow-200',
+            'textColor' => 'text-yellow-800',
+            'iconColor' => 'text-yellow-600'
+        ],
+        'rechazado' => [
+            'icon' => '<svg class="h-6 w-6" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>',
+            'text' => 'Evidencia Rechazada',
+            'description' => 'Se requiere nueva evidencia para cerrar el GAP',
+            'bgColor' => 'bg-red-50',
+            'borderColor' => 'border-red-200',
+            'textColor' => 'text-red-800',
+            'iconColor' => 'text-red-600'
+        ],
+        'abierto' => [
+            'icon' => '<svg class="h-6 w-6" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>',
+            'text' => 'Abierto',
+            'description' => 'Acciones en progreso - ' . number_format($avance, 0) . '% completado',
+            'bgColor' => 'bg-gray-50',
+            'borderColor' => 'border-gray-200',
+            'textColor' => 'text-gray-800',
+            'iconColor' => 'text-gray-600'
+        ]
+    ];
+    
+    return $estados[$estado] ?? $estados['abierto'];
+}
 ?>
 
 <!DOCTYPE html>
@@ -50,7 +94,6 @@ include __DIR__ . '/../components/form/textarea.php';
             
             <main class="flex-1 overflow-y-auto p-6 lg:p-8">
                 
-                <!-- Breadcrumb -->
                 <nav class="flex mb-6" aria-label="Breadcrumb">
                     <ol class="inline-flex items-center space-x-1 md:space-x-3">
                         <li class="inline-flex items-center">
@@ -71,7 +114,6 @@ include __DIR__ . '/../components/form/textarea.php';
                     </ol>
                 </nav>
 
-                <!-- Header -->
                 <div class="mb-8">
                     <div class="sm:flex sm:items-center sm:justify-between">
                         <div>
@@ -95,12 +137,29 @@ include __DIR__ . '/../components/form/textarea.php';
                     </div>
                 </div>
 
+                <?php 
+                $estadoCert = getEstadoCertificacionBadge($gap['estado_certificacion'], $gap['avance']);
+                if ($gap['estado_certificacion'] === 'en_validacion' || $gap['estado_certificacion'] === 'rechazado'): 
+                ?>
+                    <div class="mb-6 border-l-4 <?= $gap['estado_certificacion'] === 'rechazado' ? 'border-red-400 bg-red-50' : 'border-yellow-400 bg-yellow-50' ?> p-4 rounded-r-lg">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <?= $estadoCert['icon'] ?>
+                            </div>
+                            <div class="ml-3">
+                                <h3 class="text-sm font-medium <?= $estadoCert['textColor'] ?>"><?= $estadoCert['text'] ?></h3>
+                                <div class="mt-2 text-sm <?= $estadoCert['textColor'] ?>">
+                                    <p><?= $estadoCert['description'] ?></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                <?php endif; ?>
+
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     
-                    <!-- Columna Principal -->
                     <div class="lg:col-span-2 space-y-6">
                         
-                        <!-- Información del GAP -->
                         <div class="bg-white shadow-sm rounded-lg border border-gray-200">
                             <div class="px-6 py-5 border-b border-gray-200">
                                 <h3 class="text-lg font-semibold text-gray-900">Detalles de la Brecha</h3>
@@ -138,19 +197,28 @@ include __DIR__ . '/../components/form/textarea.php';
                                     </div>
 
                                     <div>
-                                        <dt class="text-sm font-medium text-gray-500 mb-2">Progreso General</dt>
-                                        <dd><?= renderProgressBar((float)$gap['avance'], 'primary', 'md', true) ?></dd>
+                                        <dt class="text-sm font-medium text-gray-500 mb-3">Estado de Certificación</dt>
+                                        <dd>
+                                            <div class="border-2 <?= $estadoCert['borderColor'] ?> <?= $estadoCert['bgColor'] ?> rounded-lg p-4">
+                                                <div class="flex items-center">
+                                                    <div class="flex-shrink-0 <?= $estadoCert['iconColor'] ?>">
+                                                        <?= $estadoCert['icon'] ?>
+                                                    </div>
+                                                    <div class="ml-3 flex-1">
+                                                        <p class="text-sm font-semibold <?= $estadoCert['textColor'] ?>"><?= $estadoCert['text'] ?></p>
+                                                        <p class="text-xs <?= $estadoCert['textColor'] ?> mt-1"><?= $estadoCert['description'] ?></p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </dd>
                                     </div>
                                 </dl>
                             </div>
                         </div>
 
-                        <!-- Plan de Acción -->
                         <div class="bg-white shadow-sm rounded-lg border border-gray-200">
                             <div class="px-6 py-5 border-b border-gray-200">
-                                <div class="flex items-center justify-between">
-                                    <h3 class="text-lg font-semibold text-gray-900">Plan de Acción</h3>
-                                </div>
+                                <h3 class="text-lg font-semibold text-gray-900">Plan de Acción</h3>
                             </div>
                             <div class="px-6 py-5">
                                 <?php if (empty($acciones)): ?>
@@ -220,12 +288,61 @@ include __DIR__ . '/../components/form/textarea.php';
                             </div>
                         </div>
 
+                        <div class="bg-white shadow-sm rounded-lg border border-gray-200">
+                            <div class="px-6 py-5 border-b border-gray-200">
+                                <h3 class="text-lg font-semibold text-gray-900">Evidencias del Control</h3>
+                            </div>
+                            <div class="px-6 py-5">
+                                <?php if (empty($evidencias)): ?>
+                                    <div class="text-center py-8">
+                                        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                        </svg>
+                                        <h3 class="mt-2 text-sm font-medium text-gray-900">No hay evidencias</h3>
+                                        <p class="mt-1 text-sm text-gray-500">Sube evidencias para demostrar el cumplimiento.</p>
+                                        <div class="mt-4">
+                                            <a href="/evidencias/create?control_id=<?= $gap['control_id'] ?>" class="inline-flex items-center px-4 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-primary-600 hover:bg-primary-700">
+                                                Subir Evidencia
+                                            </a>
+                                        </div>
+                                    </div>
+                                <?php else: ?>
+                                    <div class="space-y-3">
+                                        <?php foreach ($evidencias as $evidencia): ?>
+                                        <div class="flex items-center justify-between border border-gray-200 rounded-lg p-3">
+                                            <div class="flex items-center">
+                                                <svg class="h-5 w-5 text-gray-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                                </svg>
+                                                <div>
+                                                    <p class="text-sm font-medium text-gray-900"><?= htmlspecialchars($evidencia['nombre_archivo']) ?></p>
+                                                    <p class="text-xs text-gray-500"><?= date('d/m/Y', strtotime($evidencia['created_at'])) ?></p>
+                                                </div>
+                                            </div>
+                                            <div class="flex items-center space-x-2">
+                                                <?php
+                                                $estadoVariant = $evidencia['estado_validacion'] === 'aprobada' ? 'success' :
+                                                               ($evidencia['estado_validacion'] === 'rechazada' ? 'error' : 'warning');
+                                                echo renderBadge(ucfirst($evidencia['estado_validacion']), $estadoVariant, 'sm');
+                                                ?>
+                                                <a href="/evidencias/<?= $evidencia['id'] ?>" class="text-primary-600 hover:text-primary-900">
+                                                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                                    </svg>
+                                                </a>
+                                            </div>
+                                        </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+
                     </div>
 
-                    <!-- Sidebar -->
                     <div class="space-y-6">
                         
-                        <!-- Info Control -->
                         <div class="bg-white shadow-sm rounded-lg border border-gray-200">
                             <div class="px-6 py-5 border-b border-gray-200">
                                 <h3 class="text-lg font-semibold text-gray-900">Control Asociado</h3>
@@ -253,7 +370,6 @@ include __DIR__ . '/../components/form/textarea.php';
                             </div>
                         </div>
 
-                        <!-- Resumen de Acciones -->
                         <div class="bg-white shadow-sm rounded-lg border border-gray-200">
                             <div class="px-6 py-5 border-b border-gray-200">
                                 <h3 class="text-lg font-semibold text-gray-900">Resumen</h3>
@@ -281,6 +397,24 @@ include __DIR__ . '/../components/form/textarea.php';
                                         <?= count(array_filter($acciones, fn($a) => $a['estado'] === 'vencida')) ?>
                                     </span>
                                 </div>
+                                <div class="pt-3 border-t border-gray-200">
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-sm text-gray-600">Evidencias</span>
+                                        <span class="text-sm font-semibold text-gray-900"><?= count($evidencias) ?></span>
+                                    </div>
+                                    <div class="flex justify-between items-center mt-2">
+                                        <span class="text-sm text-gray-600">Estado de evidencia</span>
+                                        <?php if ($tiene_evidencia_aprobada): ?>
+                                            <svg class="h-5 w-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                            </svg>
+                                        <?php else: ?>
+                                            <svg class="h-5 w-5 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                                            </svg>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -291,7 +425,6 @@ include __DIR__ . '/../components/form/textarea.php';
         </div>
     </div>
 
-<!-- Modal Editar GAP -->
 <div id="editModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
     <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
         <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onclick="closeModal('editModal')"></div>
@@ -356,7 +489,6 @@ include __DIR__ . '/../components/form/textarea.php';
     </div>
 </div>
 
-<!-- Modal Editar Acción -->
 <div id="editAccionModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
     <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
         <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onclick="closeModal('editAccionModal')"></div>

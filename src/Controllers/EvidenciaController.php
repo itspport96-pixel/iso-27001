@@ -66,9 +66,11 @@ class EvidenciaController extends Controller
         TenantContext::getInstance()->setTenant($empresaId);
 
         $controles = $this->controlRepo->getAllWithDominio();
+        $preselectedControlId = $request->get('control_id');
 
         $this->view('evidencias/create', [
             'controles' => $controles,
+            'preselected_control_id' => $preselectedControlId,
             'user' => $this->user()
         ]);
     }
