@@ -11,6 +11,7 @@ use App\Repositories\GapRepository;
 use App\Services\AuditService;
 use App\Models\Gap;
 use App\Models\Accion;
+use App\Middleware\RoleMiddleware;
 
 class GapController extends Controller
 {
@@ -29,6 +30,11 @@ class GapController extends Controller
         $this->request = $request;
         $this->response = $response;
         $this->requireAuth();
+
+        if (!RoleMiddleware::can('gaps.view')) {
+            $this->response->error('Acceso denegado', 403);
+            return;
+        }
 
         $empresaId = $this->user()['empresa_id'];
         TenantContext::getInstance()->setTenant($empresaId);
@@ -56,6 +62,11 @@ class GapController extends Controller
         $this->response = $response;
         $this->requireAuth();
 
+        if (!RoleMiddleware::can('gaps.create')) {
+            $this->response->error('Acceso denegado', 403);
+            return;
+        }
+
         $empresaId = $this->user()['empresa_id'];
         TenantContext::getInstance()->setTenant($empresaId);
 
@@ -72,21 +83,26 @@ class GapController extends Controller
         $this->response = $response;
         $this->requireAuth();
 
+        if (!RoleMiddleware::can('gaps.create')) {
+            $this->json(['success' => false, 'error' => 'Acceso denegado'], 403);
+            return;
+        }
+
         $empresaId = $this->user()['empresa_id'];
         TenantContext::getInstance()->setTenant($empresaId);
 
         $validator = new Validator($request->all());
-        
+
         $rules = [
             'soa_id' => 'required|numeric',
             'brecha' => 'required|min:10',
             'impacto' => 'required|in:critico,alto,medio,bajo',
             'prioridad' => 'required|in:alta,media,baja'
         ];
-        
+
         if (!$validator->validate($rules)) {
             $errores = $validator->errors();
-            $mensaje = 'Errores de validación: ';
+            $mensaje = 'Errores de validacion: ';
             foreach ($errores as $campo => $error) {
                 $mensaje .= $error[0] . '; ';
             }
@@ -136,9 +152,9 @@ class GapController extends Controller
             $descripciones = $_POST['accion_descripcion'] ?? [];
             $responsables = $_POST['accion_responsable'] ?? [];
             $fechas = $_POST['accion_fecha'] ?? [];
-            
+
             $accionModel = new Accion();
-            
+
             for ($i = 0; $i < count($descripciones); $i++) {
                 if (!empty($descripciones[$i]) && !empty($fechas[$i])) {
                     $accionModel->create([
@@ -157,7 +173,6 @@ class GapController extends Controller
             $response->redirect('/gaps/' . $gapId);
 
         } catch (\Exception $e) {
-            error_log("GAP Store - Exception: " . $e->getMessage());
             $this->gapRepo->rollback();
             $this->session->flash('error', 'Error al crear el GAP: ' . $e->getMessage());
             $response->redirect('/gaps/create');
@@ -169,6 +184,11 @@ class GapController extends Controller
         $this->request = $request;
         $this->response = $response;
         $this->requireAuth();
+
+        if (!RoleMiddleware::can('gaps.view')) {
+            $this->response->error('Acceso denegado', 403);
+            return;
+        }
 
         $empresaId = $this->user()['empresa_id'];
         TenantContext::getInstance()->setTenant($empresaId);
@@ -195,23 +215,33 @@ class GapController extends Controller
         $this->response = $response;
         $this->requireAuth();
 
+        if (!RoleMiddleware::can('gaps.edit')) {
+            $this->json(['success' => false, 'error' => 'Acceso denegado'], 403);
+            return;
+        }
+
         $empresaId = $this->user()['empresa_id'];
         TenantContext::getInstance()->setTenant($empresaId);
 
         $validator = new Validator($request->all());
-        
+
         $rules = [
             'brecha' => 'required|min:10',
             'impacto' => 'required|in:critico,alto,medio,bajo',
             'prioridad' => 'required|in:alta,media,baja'
         ];
-        
+
         if (!$validator->validate($rules)) {
             $this->json(['success' => false, 'errors' => $validator->errors()], 400);
             return;
         }
 
         $gapAnterior = $this->gapRepo->findWithDetails((int)$id);
+
+        if (!$gapAnterior) {
+            $this->json(['success' => false, 'error' => 'GAP no encontrado'], 404);
+            return;
+        }
 
         $gapModel = new Gap();
         $result = $gapModel->update((int)$id, [
@@ -250,28 +280,52 @@ class GapController extends Controller
         $this->response = $response;
         $this->requireAuth();
 
+        if (!RoleMiddleware::can('gaps.delete')) {
+            $this->json(['success' => false, 'error' => 'Acceso denegado'], 403);
+            return;
+        }
+
         $empresaId = $this->user()['empresa_id'];
         TenantContext::getInstance()->setTenant($empresaId);
 
         $gapAnterior = $this->gapRepo->findWithDetails((int)$id);
 
-        $gapModel = new Gap();
-        $result = $gapModel->softDelete((int)$id);
+        if (!$gapAnterior) {
+            $this->json(['success' => false, 'error' => 'GAP no encontrado'], 404);
+            return;
+        }
 
-        if ($result) {
-            $this->auditService->log(
-                'DELETE',
-                'gap_items',
-                (int)$id,
-                [
-                    'brecha' => $gapAnterior['brecha'],
-                    'estado_gap' => $gapAnterior['estado_gap']
-                ],
-                null
-            );
+        try {
+            $this->gapRepo->beginTransaction();
 
-            $this->json(['success' => true, 'message' => 'GAP eliminado']);
-        } else {
+            $db = \App\Core\Database::getInstance()->getConnection();
+            $stmtAcciones = $db->prepare("UPDATE acciones SET estado_accion = 'eliminado' WHERE gap_id = :gap_id");
+            $stmtAcciones->bindValue(':gap_id', (int)$id, \PDO::PARAM_INT);
+            $stmtAcciones->execute();
+
+            $gapModel = new Gap();
+            $result = $gapModel->softDelete((int)$id);
+
+            if ($result) {
+                $this->auditService->log(
+                    'DELETE',
+                    'gap_items',
+                    (int)$id,
+                    [
+                        'brecha' => $gapAnterior['brecha'],
+                        'estado_gap' => $gapAnterior['estado_gap']
+                    ],
+                    null
+                );
+
+                $this->gapRepo->commit();
+                $this->json(['success' => true, 'message' => 'GAP eliminado']);
+            } else {
+                $this->gapRepo->rollback();
+                $this->json(['success' => false, 'error' => 'Error al eliminar'], 500);
+            }
+        } catch (\Exception $e) {
+            $this->gapRepo->rollback();
             $this->json(['success' => false, 'error' => 'Error al eliminar'], 500);
         }
     }
@@ -282,11 +336,27 @@ class GapController extends Controller
         $this->response = $response;
         $this->requireAuth();
 
+        if (!RoleMiddleware::can('gaps.edit')) {
+            $this->json(['success' => false, 'error' => 'Acceso denegado'], 403);
+            return;
+        }
+
+        $empresaId = $this->user()['empresa_id'];
+        TenantContext::getInstance()->setTenant($empresaId);
+
         $estado = $request->post('estado');
         $notas = $request->post('notas');
 
         if (!in_array($estado, ['pendiente', 'en_proceso', 'completada', 'vencida'])) {
-            $this->json(['success' => false, 'error' => 'Estado inválido'], 400);
+            $this->json(['success' => false, 'error' => 'Estado invalido'], 400);
+            return;
+        }
+
+        $accionModel = new Accion();
+        $accion = $accionModel->find((int)$accionId);
+
+        if (!$accion) {
+            $this->json(['success' => false, 'error' => 'Accion no encontrada'], 404);
             return;
         }
 
@@ -299,11 +369,11 @@ class GapController extends Controller
             $data['fecha_completado'] = date('Y-m-d');
         }
 
-        $accionModel = new Accion();
         $result = $accionModel->update((int)$accionId, $data);
 
         if ($result) {
-            $this->json(['success' => true, 'message' => 'Acción actualizada']);
+            $this->recalcularAvanceGap($accion['gap_id']);
+            $this->json(['success' => true, 'message' => 'Accion actualizada']);
         } else {
             $this->json(['success' => false, 'error' => 'Error al actualizar'], 500);
         }
@@ -315,13 +385,66 @@ class GapController extends Controller
         $this->response = $response;
         $this->requireAuth();
 
+        if (!RoleMiddleware::can('gaps.edit')) {
+            $this->json(['success' => false, 'error' => 'Acceso denegado'], 403);
+            return;
+        }
+
+        $empresaId = $this->user()['empresa_id'];
+        TenantContext::getInstance()->setTenant($empresaId);
+
         $accionModel = new Accion();
+        $accion = $accionModel->find((int)$accionId);
+
+        if (!$accion) {
+            $this->json(['success' => false, 'error' => 'Accion no encontrada'], 404);
+            return;
+        }
+
         $result = $accionModel->completar((int)$accionId);
 
         if ($result) {
-            $this->json(['success' => true, 'message' => 'Acción completada']);
+            $this->recalcularAvanceGap($accion['gap_id']);
+            $this->json(['success' => true, 'message' => 'Accion completada']);
         } else {
-            $this->json(['success' => false, 'error' => 'Error al completar acción'], 500);
+            $this->json(['success' => false, 'error' => 'Error al completar accion'], 500);
         }
+    }
+
+    private function recalcularAvanceGap(int $gapId): void
+    {
+        $db = \App\Core\Database::getInstance()->getConnection();
+
+        $sql = "SELECT
+                COUNT(*) as total,
+                SUM(CASE WHEN estado = 'completada' THEN 1 ELSE 0 END) as completadas
+                FROM acciones
+                WHERE gap_id = :gap_id AND estado_accion = 'activo'";
+
+        $stmt = $db->prepare($sql);
+        $stmt->bindValue(':gap_id', $gapId, \PDO::PARAM_INT);
+        $stmt->execute();
+        $result = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+        if ($result && $result['total'] > 0) {
+            $avance = round(($result['completadas'] / $result['total']) * 100, 2);
+        } else {
+            $avance = 0;
+        }
+
+        $updateSql = "UPDATE gap_items SET avance = :avance";
+        $params = [':avance' => $avance, ':gap_id' => $gapId];
+
+        if ($avance >= 100) {
+            $updateSql .= ", estado_certificacion = 'pendiente_evidencia'";
+        }
+
+        $updateSql .= " WHERE id = :gap_id";
+
+        $stmtUpdate = $db->prepare($updateSql);
+        foreach ($params as $key => $value) {
+            $stmtUpdate->bindValue($key, $value);
+        }
+        $stmtUpdate->execute();
     }
 }

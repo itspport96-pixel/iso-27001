@@ -39,7 +39,7 @@ class RoleMiddleware
     public static function can(string $permission): bool
     {
         $session = new Session();
-        
+
         if (!$session->has('user_rol')) {
             return false;
         }
@@ -51,21 +51,24 @@ class RoleMiddleware
             'admin_empresa' => [
                 'controles.view', 'controles.edit',
                 'gaps.view', 'gaps.create', 'gaps.edit', 'gaps.delete',
-                'evidencias.view', 'evidencias.upload', 'evidencias.delete',
+                'evidencias.view', 'evidencias.upload', 'evidencias.validate', 'evidencias.delete',
                 'usuarios.view', 'usuarios.create', 'usuarios.edit',
-                'requerimientos.view', 'dashboard.view'
+                'requerimientos.view', 'requerimientos.edit',
+                'dashboard.view', 'audit.view'
             ],
             'auditor' => [
                 'controles.view',
                 'gaps.view',
                 'evidencias.view', 'evidencias.validate',
-                'requerimientos.view', 'dashboard.view'
+                'requerimientos.view',
+                'dashboard.view', 'audit.view'
             ],
             'consultor' => [
                 'controles.view',
                 'gaps.view', 'gaps.create', 'gaps.edit',
                 'evidencias.view', 'evidencias.upload',
-                'requerimientos.view', 'dashboard.view'
+                'requerimientos.view',
+                'dashboard.view'
             ]
         ];
 

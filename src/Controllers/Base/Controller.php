@@ -23,19 +23,18 @@ abstract class Controller
     protected function view(string $view, array $data = [], ?string $layout = null): void
     {
         extract($data);
-        
+
         $viewPath = __DIR__ . '/../../Views/' . $view . '.php';
-        
+
         if (!file_exists($viewPath)) {
             $this->response->error("Vista no encontrada: {$view}", 404);
             return;
         }
-        
+
         ob_start();
         include $viewPath;
         $content = ob_get_clean();
-        
-        // Si se especifica un layout, usarlo
+
         if ($layout) {
             $layoutPath = __DIR__ . '/../../Views/layouts/' . $layout . '.php';
             if (file_exists($layoutPath)) {
@@ -44,7 +43,7 @@ abstract class Controller
                 $content = ob_get_clean();
             }
         }
-        
+
         $this->response->html($content);
     }
 
@@ -61,7 +60,21 @@ abstract class Controller
     protected function back(): void
     {
         $referer = $_SERVER['HTTP_REFERER'] ?? '/';
-        $this->response->redirect($referer);
+        $parsed = parse_url($referer);
+        $host = $_SERVER['HTTP_HOST'] ?? '';
+
+        if (isset($parsed['host']) && $parsed['host'] !== $host) {
+            $this->response->redirect('/');
+            return;
+        }
+
+        $safePath = $parsed['path'] ?? '/';
+
+        if (empty($safePath) || $safePath[0] !== '/') {
+            $safePath = '/';
+        }
+
+        $this->response->redirect($safePath);
     }
 
     protected function user(): ?array
@@ -85,9 +98,9 @@ abstract class Controller
     protected function requireRole(string $role): void
     {
         $this->requireAuth();
-        
+
         $user = $this->user();
-        
+
         if ($user['rol'] !== $role && $user['rol'] !== 'super_admin') {
             $this->response->error('Acceso denegado', 403);
             exit;

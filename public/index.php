@@ -65,9 +65,10 @@ $router->get('/dashboard', [DashboardController::class, 'index']);
 
 // Rutas de controles
 $router->get('/controles', [ControlController::class, 'index']);
+$router->get('/controles/search', [ControlController::class, 'search']);
+$router->get('/controles/estadisticas', [ControlController::class, 'estadisticas']);
 $router->get('/controles/{id}', [ControlController::class, 'show']);
 $router->post('/controles/{id}/update', [ControlController::class, 'update'], [CsrfMiddleware::class, AuthMiddleware::class]);
-$router->get('/controles/estadisticas', [ControlController::class, 'estadisticas']);
 
 // Rutas de GAPs
 $router->get('/gaps', [GapController::class, 'index']);

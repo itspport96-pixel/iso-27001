@@ -57,4 +57,65 @@ class ControlRepository extends Repository
         $stmt = $this->db->query($sql);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
+
+    public function searchWithPagination(string $keyword = '', int $page = 1, int $perPage = 10): array
+    {
+        $offset = ($page - 1) * $perPage;
+        
+        $sql = "SELECT c.*, d.codigo as dominio_codigo, d.nombre as dominio_nombre 
+                FROM {$this->table} c 
+                INNER JOIN controles_dominio d ON c.dominio_id = d.id 
+                WHERE 1=1";
+        
+        $params = [];
+        
+        if (!empty($keyword)) {
+            $sql .= " AND (c.codigo LIKE :keyword 
+                      OR c.nombre LIKE :keyword 
+                      OR c.descripcion LIKE :keyword)";
+            $params[':keyword'] = "%{$keyword}%";
+        }
+        
+        $sql .= " ORDER BY d.codigo ASC, c.codigo ASC 
+                  LIMIT :limit OFFSET :offset";
+        
+        $stmt = $this->db->prepare($sql);
+        
+        foreach ($params as $key => $value) {
+            $stmt->bindValue($key, $value);
+        }
+        
+        $stmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+        
+        $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        $countSql = "SELECT COUNT(*) as total 
+                     FROM {$this->table} c 
+                     WHERE 1=1";
+        
+        if (!empty($keyword)) {
+            $countSql .= " AND (c.codigo LIKE :keyword 
+                           OR c.nombre LIKE :keyword 
+                           OR c.descripcion LIKE :keyword)";
+        }
+        
+        $countStmt = $this->db->prepare($countSql);
+        
+        if (!empty($keyword)) {
+            $countStmt->bindValue(':keyword', "%{$keyword}%");
+        }
+        
+        $countStmt->execute();
+        $total = (int)$countStmt->fetchColumn();
+        
+        return [
+            'items' => $items,
+            'total' => $total,
+            'page' => $page,
+            'per_page' => $perPage,
+            'total_pages' => (int)ceil($total / $perPage)
+        ];
+    }
 }

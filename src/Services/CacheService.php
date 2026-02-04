@@ -19,7 +19,18 @@ class CacheService
             return $default;
         }
 
-        $data = unserialize(file_get_contents($filename));
+        $raw = file_get_contents($filename);
+
+        if ($raw === false) {
+            return $default;
+        }
+
+        $data = json_decode($raw, true);
+
+        if ($data === null || !isset($data['expires_at']) || !isset($data['value'])) {
+            $this->forget($key);
+            return $default;
+        }
 
         if ($data['expires_at'] < time()) {
             $this->forget($key);
@@ -32,13 +43,13 @@ class CacheService
     public function put(string $key, $value, int $ttl = 3600): bool
     {
         $filename = $this->getFilename($key);
-        
+
         $data = [
             'value' => $value,
             'expires_at' => time() + $ttl
         ];
 
-        return file_put_contents($filename, serialize($data), LOCK_EX) !== false;
+        return file_put_contents($filename, json_encode($data), LOCK_EX) !== false;
     }
 
     public function has(string $key): bool
@@ -49,8 +60,19 @@ class CacheService
             return false;
         }
 
-        $data = unserialize(file_get_contents($filename));
-        
+        $raw = file_get_contents($filename);
+
+        if ($raw === false) {
+            return false;
+        }
+
+        $data = json_decode($raw, true);
+
+        if ($data === null || !isset($data['expires_at'])) {
+            $this->forget($key);
+            return false;
+        }
+
         if ($data['expires_at'] < time()) {
             $this->forget($key);
             return false;
@@ -73,7 +95,7 @@ class CacheService
     public function flush(): void
     {
         $files = glob($this->cachePath . '/*.cache');
-        
+
         foreach ($files as $file) {
             if (is_file($file)) {
                 unlink($file);

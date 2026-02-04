@@ -7,6 +7,7 @@ use App\Core\Request;
 use App\Core\Response;
 use App\Core\TenantContext;
 use App\Repositories\AuditLogRepository;
+use App\Middleware\RoleMiddleware;
 
 class AuditController extends Controller
 {
@@ -23,6 +24,11 @@ class AuditController extends Controller
         $this->request = $request;
         $this->response = $response;
         $this->requireAuth();
+
+        if (!RoleMiddleware::can('audit.view')) {
+            $this->response->error('Acceso denegado', 403);
+            return;
+        }
 
         $empresaId = $this->user()['empresa_id'];
         TenantContext::getInstance()->setTenant($empresaId);
@@ -50,6 +56,11 @@ class AuditController extends Controller
         $this->request = $request;
         $this->response = $response;
         $this->requireAuth();
+
+        if (!RoleMiddleware::can('audit.view')) {
+            $this->response->error('Acceso denegado', 403);
+            return;
+        }
 
         $empresaId = $this->user()['empresa_id'];
         TenantContext::getInstance()->setTenant($empresaId);

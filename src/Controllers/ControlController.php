@@ -9,7 +9,7 @@ use App\Core\TenantContext;
 use App\Repositories\ControlRepository;
 use App\Repositories\SOARepository;
 use App\Services\AuditService;
-use App\Middleware\AuthMiddleware;
+use App\Middleware\RoleMiddleware;
 
 class ControlController extends Controller
 {
@@ -30,6 +30,11 @@ class ControlController extends Controller
         $this->request = $request;
         $this->response = $response;
         $this->requireAuth();
+
+        if (!RoleMiddleware::can('controles.view')) {
+            $this->response->error('Acceso denegado', 403);
+            return;
+        }
 
         $empresaId = $this->user()['empresa_id'];
         TenantContext::getInstance()->setTenant($empresaId);
@@ -57,11 +62,59 @@ class ControlController extends Controller
         ]);
     }
 
+    public function search(Request $request, Response $response): void
+    {
+        $this->request = $request;
+        $this->response = $response;
+        $this->requireAuth();
+
+        if (!RoleMiddleware::can('controles.view')) {
+            $this->json(['success' => false, 'error' => 'Acceso denegado'], 403);
+            return;
+        }
+
+        $empresaId = $this->user()['empresa_id'];
+        TenantContext::getInstance()->setTenant($empresaId);
+
+        $searchQuery = $request->get('search') ?? '';
+        $page = max(1, (int)($request->get('page') ?? 1));
+        $perPage = max(1, min(100, (int)($request->get('per_page') ?? 10)));
+        
+        $dominioId = $request->get('dominio');
+        $estado = $request->get('estado');
+        $aplicable = $request->get('aplicable');
+
+        $result = $this->soaRepo->searchWithPagination(
+            $searchQuery,
+            $page,
+            $perPage,
+            $dominioId,
+            $estado,
+            $aplicable
+        );
+
+        $this->json([
+            'success' => true,
+            'data' => $result['data'],
+            'pagination' => [
+                'page' => $result['page'],
+                'per_page' => $result['per_page'],
+                'total' => $result['total'],
+                'last_page' => $result['last_page']
+            ]
+        ]);
+    }
+
     public function show(Request $request, Response $response, string $id): void
     {
         $this->request = $request;
         $this->response = $response;
         $this->requireAuth();
+
+        if (!RoleMiddleware::can('controles.view')) {
+            $this->response->error('Acceso denegado', 403);
+            return;
+        }
 
         $empresaId = $this->user()['empresa_id'];
         TenantContext::getInstance()->setTenant($empresaId);
@@ -86,6 +139,11 @@ class ControlController extends Controller
         $this->response = $response;
         $this->requireAuth();
 
+        if (!RoleMiddleware::can('controles.edit')) {
+            $this->json(['success' => false, 'error' => 'Acceso denegado'], 403);
+            return;
+        }
+
         $empresaId = $this->user()['empresa_id'];
         TenantContext::getInstance()->setTenant($empresaId);
 
@@ -94,11 +152,16 @@ class ControlController extends Controller
         $aplicable = $request->post('aplicable');
 
         if (!in_array($estado, ['no_implementado', 'parcial', 'implementado'])) {
-            $this->json(['success' => false, 'error' => 'Estado inválido'], 400);
+            $this->json(['success' => false, 'error' => 'Estado invalido'], 400);
             return;
         }
 
         $soaAnterior = $this->soaRepo->findById((int)$id);
+
+        if (!$soaAnterior) {
+            $this->json(['success' => false, 'error' => 'Control no encontrado'], 404);
+            return;
+        }
 
         $data = [
             'estado' => $estado,
@@ -138,6 +201,11 @@ class ControlController extends Controller
         $this->request = $request;
         $this->response = $response;
         $this->requireAuth();
+
+        if (!RoleMiddleware::can('controles.view')) {
+            $this->json(['success' => false, 'error' => 'Acceso denegado'], 403);
+            return;
+        }
 
         $empresaId = $this->user()['empresa_id'];
         TenantContext::getInstance()->setTenant($empresaId);

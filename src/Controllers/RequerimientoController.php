@@ -10,6 +10,7 @@ use App\Core\Validator;
 use App\Repositories\RequerimientoRepository;
 use App\Services\AuditService;
 use App\Models\Requerimiento;
+use App\Middleware\RoleMiddleware;
 
 class RequerimientoController extends Controller
 {
@@ -29,16 +30,21 @@ class RequerimientoController extends Controller
         $this->response = $response;
         $this->requireAuth();
 
+        if (!RoleMiddleware::can('requerimientos.view')) {
+            $this->response->error('Acceso denegado', 403);
+            return;
+        }
+
         $empresaId = $this->user()['empresa_id'];
         TenantContext::getInstance()->setTenant($empresaId);
 
         $requerimientos = $this->requerimientoRepo->getWithRequerimientoBase();
-        
+
         foreach ($requerimientos as &$req) {
             $progreso = $this->requerimientoRepo->calcularProgresoRequerimiento($req['requerimiento_id']);
             $req['progreso'] = $progreso;
         }
-        
+
         $estadisticas = $this->requerimientoRepo->getEstadisticas();
 
         $this->view('requerimientos/index', [
@@ -52,6 +58,11 @@ class RequerimientoController extends Controller
         $this->request = $request;
         $this->response = $response;
         $this->requireAuth();
+
+        if (!RoleMiddleware::can('requerimientos.view')) {
+            $this->response->error('Acceso denegado', 403);
+            return;
+        }
 
         $empresaId = $this->user()['empresa_id'];
         TenantContext::getInstance()->setTenant($empresaId);
@@ -79,21 +90,31 @@ class RequerimientoController extends Controller
         $this->response = $response;
         $this->requireAuth();
 
+        if (!RoleMiddleware::can('requerimientos.edit')) {
+            $this->json(['success' => false, 'error' => 'Acceso denegado'], 403);
+            return;
+        }
+
         $empresaId = $this->user()['empresa_id'];
         TenantContext::getInstance()->setTenant($empresaId);
 
         $validator = new Validator($request->all());
-        
+
         $rules = [
             'estado' => 'required|in:pendiente,en_proceso,completado'
         ];
-        
+
         if (!$validator->validate($rules)) {
             $this->json(['success' => false, 'errors' => $validator->errors()], 400);
             return;
         }
 
         $requerimientoAnterior = $this->requerimientoRepo->findWithDetails((int)$id);
+
+        if (!$requerimientoAnterior) {
+            $this->json(['success' => false, 'error' => 'Requerimiento no encontrado'], 404);
+            return;
+        }
 
         $requerimientoModel = new Requerimiento();
         $result = $requerimientoModel->updateEstado(

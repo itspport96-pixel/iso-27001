@@ -6,23 +6,28 @@ $csrfToken = CsrfMiddleware::getToken();
 <h2>Subir Nueva Evidencia</h2>
 
 <form method="POST" action="/evidencias/store" enctype="multipart/form-data">
-    <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
+    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken) ?>">
     
     <label>Control:</label><br>
     <select name="control_id" required>
         <option value="">Seleccione un control</option>
         <?php foreach ($controles as $control): ?>
-            <option value="<?= $control['id'] ?>">
+            <option value="<?= htmlspecialchars($control['id']) ?>" 
+                <?= (isset($control_preseleccionado) && $control_preseleccionado == $control['id']) ? 'selected' : '' ?>>
                 <?= htmlspecialchars($control['codigo']) ?> - <?= htmlspecialchars($control['nombre']) ?>
             </option>
         <?php endforeach; ?>
     </select>
     <br><br>
     
+    <label>Descripcion (que demuestra esta evidencia):</label><br>
+    <textarea name="comentarios" rows="3" cols="60" placeholder="Ejemplo: Politica de respaldos aprobada que implementa control de respaldo de informacion"></textarea>
+    <br><br>
+    
     <label>Archivo:</label><br>
     <input type="file" name="archivo" required>
     <br>
-    <small>Formatos permitidos: PDF, JPG, PNG, GIF, DOCX, XLSX, TXT. Tamaño máximo: 10MB</small>
+    <small>Formatos permitidos: PDF, JPG, PNG, GIF, DOCX, XLSX, TXT. Tamaño maximo: 10MB</small>
     <br><br>
     
     <button type="submit">Subir Evidencia</button>

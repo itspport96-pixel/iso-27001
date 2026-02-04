@@ -12,6 +12,7 @@ use App\Repositories\ControlRepository;
 use App\Services\AuditService;
 use App\Models\Evidencia;
 use App\Services\FileService;
+use App\Middleware\RoleMiddleware;
 
 class EvidenciaController extends Controller
 {
@@ -34,6 +35,11 @@ class EvidenciaController extends Controller
         $this->request = $request;
         $this->response = $response;
         $this->requireAuth();
+
+        if (!RoleMiddleware::can('evidencias.view')) {
+            $this->response->error('Acceso denegado', 403);
+            return;
+        }
 
         $empresaId = $this->user()['empresa_id'];
         TenantContext::getInstance()->setTenant($empresaId);
@@ -61,13 +67,20 @@ class EvidenciaController extends Controller
         $this->response = $response;
         $this->requireAuth();
 
+        if (!RoleMiddleware::can('evidencias.upload')) {
+            $this->response->error('Acceso denegado', 403);
+            return;
+        }
+
         $empresaId = $this->user()['empresa_id'];
         TenantContext::getInstance()->setTenant($empresaId);
 
         $controles = $this->controlRepo->getAllWithDominio();
+        $controlIdPreseleccionado = $request->get('control_id');
 
         $this->view('evidencias/create', [
-            'controles' => $controles
+            'controles' => $controles,
+            'control_preseleccionado' => $controlIdPreseleccionado
         ]);
     }
 
@@ -77,25 +90,31 @@ class EvidenciaController extends Controller
         $this->response = $response;
         $this->requireAuth();
 
+        if (!RoleMiddleware::can('evidencias.upload')) {
+            $this->json(['success' => false, 'error' => 'Acceso denegado'], 403);
+            return;
+        }
+
         $empresaId = $this->user()['empresa_id'];
         $userId = $this->user()['id'];
         TenantContext::getInstance()->setTenant($empresaId);
 
         $validator = new Validator($request->all());
-        
+
         $rules = [
             'control_id' => 'required|numeric'
         ];
-        
+
         if (!$validator->validate($rules)) {
+            $this->session->flash('error', 'Control invalido');
             $response->redirect('/evidencias/create');
             return;
         }
 
         $file = $request->file('archivo');
-        
+
         if (!$file || $file['error'] !== UPLOAD_ERR_OK) {
-            $this->session->flash('error', 'Debe seleccionar un archivo válido');
+            $this->session->flash('error', 'Debe seleccionar un archivo valido');
             $response->redirect('/evidencias/create');
             return;
         }
@@ -118,7 +137,8 @@ class EvidenciaController extends Controller
                 'tamano' => $uploadResult['tamano'],
                 'hash_sha256' => $uploadResult['hash'],
                 'estado_validacion' => 'pendiente',
-                'subido_por' => $userId
+                'subido_por' => $userId,
+                'comentarios' => $request->post('comentarios')
             ]);
 
             if ($evidenciaId) {
@@ -137,6 +157,7 @@ class EvidenciaController extends Controller
                 $this->session->flash('success', 'Evidencia subida exitosamente');
                 $response->redirect('/evidencias');
             } else {
+                $this->session->flash('error', 'Error al guardar evidencia');
                 $response->redirect('/evidencias/create');
             }
 
@@ -151,6 +172,11 @@ class EvidenciaController extends Controller
         $this->request = $request;
         $this->response = $response;
         $this->requireAuth();
+
+        if (!RoleMiddleware::can('evidencias.view')) {
+            $this->response->error('Acceso denegado', 403);
+            return;
+        }
 
         $empresaId = $this->user()['empresa_id'];
         TenantContext::getInstance()->setTenant($empresaId);
@@ -173,24 +199,92 @@ class EvidenciaController extends Controller
         $this->response = $response;
         $this->requireAuth();
 
+        if (!RoleMiddleware::can('evidencias.validate')) {
+            $this->json(['success' => false, 'error' => 'Acceso denegado'], 403);
+            return;
+        }
+
         $empresaId = $this->user()['empresa_id'];
         $userId = $this->user()['id'];
         TenantContext::getInstance()->setTenant($empresaId);
 
         $evidenciaAnterior = $this->evidenciaRepo->findWithDetails((int)$id);
 
+        if (!$evidenciaAnterior) {
+            $this->json(['success' => false, 'error' => 'Evidencia no encontrada'], 404);
+            return;
+        }
+
+        if ($evidenciaAnterior['estado_validacion'] !== 'pendiente') {
+            $this->json(['success' => false, 'error' => 'Solo se puede validar evidencias pendientes'], 400);
+            return;
+        }
+
         $estado = $request->post('estado_validacion');
         $comentarios = $request->post('comentarios');
 
         if (!in_array($estado, ['aprobada', 'rechazada'])) {
-            $this->json(['success' => false, 'error' => 'Estado inválido'], 400);
+            $this->json(['success' => false, 'error' => 'Estado invalido'], 400);
             return;
         }
 
-        $evidenciaModel = new Evidencia();
-        $result = $evidenciaModel->validar((int)$id, $estado, $comentarios, $userId);
+        try {
+            $db = \App\Core\Database::getInstance()->getConnection();
+            $db->beginTransaction();
 
-        if ($result) {
+            $evidenciaModel = new Evidencia();
+            $result = $evidenciaModel->validar((int)$id, $estado, $comentarios, $userId);
+
+            if (!$result) {
+                throw new \Exception('Error al validar evidencia');
+            }
+
+            if ($estado === 'aprobada') {
+                $controlId = $evidenciaAnterior['control_id'];
+
+                $stmtSoa = $db->prepare("
+                    SELECT id FROM soa_entries 
+                    WHERE control_id = :control_id 
+                    AND empresa_id = :empresa_id 
+                    LIMIT 1
+                ");
+                $stmtSoa->execute([
+                    ':control_id' => $controlId,
+                    ':empresa_id' => $empresaId
+                ]);
+                $soa = $stmtSoa->fetch(\PDO::FETCH_ASSOC);
+
+                if ($soa) {
+                    $stmtUpdateSoa = $db->prepare("
+                        UPDATE soa_entries 
+                        SET estado = 'implementado', 
+                            fecha_evaluacion = CURDATE() 
+                        WHERE id = :soa_id
+                        AND empresa_id = :empresa_id
+                    ");
+                    $stmtUpdateSoa->execute([
+                        ':soa_id' => $soa['id'],
+                        ':empresa_id' => $empresaId
+                    ]);
+
+                    $stmtGap = $db->prepare("
+                        UPDATE gap_items 
+                        SET estado_certificacion = 'cerrado',
+                            fecha_real_cierre = CURDATE()
+                        WHERE soa_id = :soa_id 
+                        AND estado_certificacion = 'pendiente_evidencia'
+                        AND estado_gap = 'activo'
+                        AND empresa_id = :empresa_id
+                    ");
+                    $stmtGap->execute([
+                        ':soa_id' => $soa['id'],
+                        ':empresa_id' => $empresaId
+                    ]);
+                }
+            }
+
+            $db->commit();
+
             $this->auditService->log(
                 'UPDATE',
                 'evidencias',
@@ -206,8 +300,12 @@ class EvidenciaController extends Controller
             );
 
             $this->json(['success' => true, 'message' => 'Evidencia validada']);
-        } else {
-            $this->json(['success' => false, 'error' => 'Error al validar'], 500);
+
+        } catch (\Exception $e) {
+            if ($db->inTransaction()) {
+                $db->rollback();
+            }
+            $this->json(['success' => false, 'error' => 'Error al validar: ' . $e->getMessage()], 500);
         }
     }
 
@@ -216,6 +314,11 @@ class EvidenciaController extends Controller
         $this->request = $request;
         $this->response = $response;
         $this->requireAuth();
+
+        if (!RoleMiddleware::can('evidencias.delete')) {
+            $this->json(['success' => false, 'error' => 'Acceso denegado'], 403);
+            return;
+        }
 
         $empresaId = $this->user()['empresa_id'];
         TenantContext::getInstance()->setTenant($empresaId);
@@ -263,6 +366,11 @@ class EvidenciaController extends Controller
         $this->response = $response;
         $this->requireAuth();
 
+        if (!RoleMiddleware::can('evidencias.view')) {
+            $this->response->error('Acceso denegado', 403);
+            return;
+        }
+
         $empresaId = $this->user()['empresa_id'];
         TenantContext::getInstance()->setTenant($empresaId);
 
@@ -279,8 +387,16 @@ class EvidenciaController extends Controller
             return;
         }
 
+        $realPath = realpath($evidencia['ruta_archivo']);
+        $uploadBase = realpath($_ENV['UPLOAD_PATH'] ?? '/var/www/html/storage/uploads');
+
+        if ($realPath === false || $uploadBase === false || strpos($realPath, $uploadBase) !== 0) {
+            $this->response->error('Acceso denegado', 403);
+            return;
+        }
+
         header('Content-Type: ' . $evidencia['tipo_mime']);
-        header('Content-Disposition: attachment; filename="' . $evidencia['nombre_archivo'] . '"');
+        header('Content-Disposition: attachment; filename="' . basename($evidencia['nombre_archivo']) . '"');
         header('Content-Length: ' . filesize($evidencia['ruta_archivo']));
         readfile($evidencia['ruta_archivo']);
         exit;
