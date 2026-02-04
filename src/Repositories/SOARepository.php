@@ -11,35 +11,6 @@ class SOARepository extends Repository
     protected string $table = 'soa_entries';
     protected bool $usesTenant = true;
 
-    public function getWithControlInfo(): array
-    {
-        $sql = "SELECT s.*, c.codigo, c.nombre as control_nombre, c.descripcion,
-                d.codigo as dominio_codigo, d.nombre as dominio_nombre 
-                FROM {$this->table} s 
-                INNER JOIN controles c ON s.control_id = c.id 
-                INNER JOIN controles_dominio d ON c.dominio_id = d.id";
-        
-        $params = [];
-        
-        if ($this->usesTenant) {
-            $tenantId = TenantContext::getInstance()->getTenant();
-            $sql .= " WHERE s.empresa_id = :empresa_id";
-            $params[':empresa_id'] = $tenantId;
-        }
-        
-        $sql .= " ORDER BY d.codigo ASC, c.codigo ASC";
-        
-        $stmt = $this->db->prepare($sql);
-        
-        foreach ($params as $key => $value) {
-            $stmt->bindValue($key, $value, PDO::PARAM_INT);
-        }
-        
-        $stmt->execute();
-        
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
-
     public function searchWithPagination(
         string $searchQuery,
         int $page,
@@ -48,63 +19,51 @@ class SOARepository extends Repository
         $estado = null,
         $aplicable = null
     ): array {
-        // Validar y sanitizar inputs
         $page = max(1, (int)$page);
         $perPage = max(1, min(100, (int)$perPage));
         $offset = ($page - 1) * $perPage;
         
-        // Construir condiciones WHERE
-        $conditions = [];
+        $whereConditions = [];
         $params = [];
-        $types = [];
         
-        // Tenant (siempre presente)
         if ($this->usesTenant) {
             $tenantId = TenantContext::getInstance()->getTenant();
-            $conditions[] = "s.empresa_id = :empresa_id";
-            $params[':empresa_id'] = $tenantId;
-            $types[':empresa_id'] = PDO::PARAM_INT;
+            $whereConditions[] = "s.empresa_id = ?";
+            $params[] = $tenantId;
         }
         
-        // Búsqueda - sanitizar searchQuery
         if (!empty($searchQuery)) {
             $searchQuery = trim($searchQuery);
             if (strlen($searchQuery) > 255) {
                 $searchQuery = substr($searchQuery, 0, 255);
             }
-            $conditions[] = "(c.codigo LIKE :search OR c.nombre LIKE :search OR c.descripcion LIKE :search)";
-            $params[':search'] = '%' . $searchQuery . '%';
-            $types[':search'] = PDO::PARAM_STR;
+            $whereConditions[] = "(c.codigo LIKE ? OR c.nombre LIKE ? OR c.descripcion LIKE ?)";
+            $searchParam = '%' . $searchQuery . '%';
+            $params[] = $searchParam;
+            $params[] = $searchParam;
+            $params[] = $searchParam;
         }
         
-        // Filtro dominio - validar es numérico
         if (!empty($dominioId) && is_numeric($dominioId)) {
-            $conditions[] = "c.dominio_id = :dominio_id";
-            $params[':dominio_id'] = (int)$dominioId;
-            $types[':dominio_id'] = PDO::PARAM_INT;
+            $whereConditions[] = "c.dominio_id = ?";
+            $params[] = (int)$dominioId;
         }
         
-        // Filtro estado - whitelist
         if (!empty($estado) && in_array($estado, ['no_implementado', 'parcial', 'implementado'], true)) {
-            $conditions[] = "s.estado = :estado";
-            $params[':estado'] = $estado;
-            $types[':estado'] = PDO::PARAM_STR;
+            $whereConditions[] = "s.estado = ?";
+            $params[] = $estado;
         }
         
-        // Filtro aplicable - validar booleano
         if ($aplicable !== null && $aplicable !== '') {
             $aplicableValue = (int)$aplicable;
             if ($aplicableValue === 0 || $aplicableValue === 1) {
-                $conditions[] = "s.aplicable = :aplicable";
-                $params[':aplicable'] = $aplicableValue;
-                $types[':aplicable'] = PDO::PARAM_INT;
+                $whereConditions[] = "s.aplicable = ?";
+                $params[] = $aplicableValue;
             }
         }
         
-        // Construir WHERE clause
-        $whereClause = !empty($conditions) ? 'WHERE ' . implode(' AND ', $conditions) : '';
+        $whereClause = !empty($whereConditions) ? 'WHERE ' . implode(' AND ', $whereConditions) : '';
         
-        // Count total con prepared statement
         $countSql = "SELECT COUNT(*) 
                      FROM {$this->table} s 
                      INNER JOIN controles c ON s.control_id = c.id 
@@ -112,15 +71,9 @@ class SOARepository extends Repository
                      {$whereClause}";
         
         $countStmt = $this->db->prepare($countSql);
-        
-        foreach ($params as $key => $value) {
-            $countStmt->bindValue($key, $value, $types[$key]);
-        }
-        
-        $countStmt->execute();
+        $countStmt->execute($params);
         $total = (int)$countStmt->fetchColumn();
         
-        // Query principal con datos y prepared statement
         $sql = "SELECT s.id, s.empresa_id, s.control_id, s.aplicable, s.estado, 
                 s.justificacion, s.responsable, s.fecha_evaluacion, 
                 s.created_at, s.updated_at,
@@ -131,18 +84,15 @@ class SOARepository extends Repository
                 INNER JOIN controles_dominio d ON c.dominio_id = d.id 
                 {$whereClause}
                 ORDER BY d.codigo ASC, c.codigo ASC 
-                LIMIT :limit OFFSET :offset";
+                LIMIT ? OFFSET ?";
         
         $stmt = $this->db->prepare($sql);
         
-        foreach ($params as $key => $value) {
-            $stmt->bindValue($key, $value, $types[$key]);
-        }
+        $executeParams = $params;
+        $executeParams[] = $perPage;
+        $executeParams[] = $offset;
         
-        $stmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
-        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
-        
-        $stmt->execute();
+        $stmt->execute($executeParams);
         
         $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
@@ -157,128 +107,6 @@ class SOARepository extends Repository
         ];
     }
 
-    public function getByFiltros($dominioId = null, $estado = null, $aplicable = null): array
-    {
-        $sql = "SELECT s.*, c.codigo, c.nombre as control_nombre, 
-                d.nombre as dominio_nombre 
-                FROM {$this->table} s 
-                INNER JOIN controles c ON s.control_id = c.id 
-                INNER JOIN controles_dominio d ON c.dominio_id = d.id 
-                WHERE 1=1";
-        
-        $params = [];
-        $types = [];
-        
-        if ($this->usesTenant) {
-            $tenantId = TenantContext::getInstance()->getTenant();
-            $sql .= " AND s.empresa_id = :empresa_id";
-            $params[':empresa_id'] = $tenantId;
-            $types[':empresa_id'] = PDO::PARAM_INT;
-        }
-        
-        if ($dominioId && is_numeric($dominioId)) {
-            $sql .= " AND c.dominio_id = :dominio_id";
-            $params[':dominio_id'] = (int)$dominioId;
-            $types[':dominio_id'] = PDO::PARAM_INT;
-        }
-        
-        if ($estado && in_array($estado, ['no_implementado', 'parcial', 'implementado'], true)) {
-            $sql .= " AND s.estado = :estado";
-            $params[':estado'] = $estado;
-            $types[':estado'] = PDO::PARAM_STR;
-        }
-        
-        if ($aplicable !== null && $aplicable !== '') {
-            $aplicableValue = (int)$aplicable;
-            if ($aplicableValue === 0 || $aplicableValue === 1) {
-                $sql .= " AND s.aplicable = :aplicable";
-                $params[':aplicable'] = $aplicableValue;
-                $types[':aplicable'] = PDO::PARAM_INT;
-            }
-        }
-        
-        $sql .= " ORDER BY c.codigo ASC";
-        
-        $stmt = $this->db->prepare($sql);
-        
-        foreach ($params as $key => $value) {
-            $stmt->bindValue($key, $value, $types[$key]);
-        }
-        
-        $stmt->execute();
-        
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
-
-    public function getByEstado(string $estado): array
-    {
-        // Whitelist de estados válidos
-        if (!in_array($estado, ['no_implementado', 'parcial', 'implementado'], true)) {
-            return [];
-        }
-        
-        $sql = "SELECT s.*, c.codigo, c.nombre as control_nombre, 
-                d.nombre as dominio_nombre 
-                FROM {$this->table} s 
-                INNER JOIN controles c ON s.control_id = c.id 
-                INNER JOIN controles_dominio d ON c.dominio_id = d.id 
-                WHERE s.estado = :estado";
-        
-        $params = [':estado' => $estado];
-        $types = [':estado' => PDO::PARAM_STR];
-        
-        if ($this->usesTenant) {
-            $tenantId = TenantContext::getInstance()->getTenant();
-            $sql .= " AND s.empresa_id = :empresa_id";
-            $params[':empresa_id'] = $tenantId;
-            $types[':empresa_id'] = PDO::PARAM_INT;
-        }
-        
-        $sql .= " ORDER BY c.codigo ASC";
-        
-        $stmt = $this->db->prepare($sql);
-        
-        foreach ($params as $key => $value) {
-            $stmt->bindValue($key, $value, $types[$key]);
-        }
-        
-        $stmt->execute();
-        
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
-
-    public function getByDominio(int $dominioId): array
-    {
-        $sql = "SELECT s.*, c.codigo, c.nombre as control_nombre, 
-                d.nombre as dominio_nombre 
-                FROM {$this->table} s 
-                INNER JOIN controles c ON s.control_id = c.id 
-                INNER JOIN controles_dominio d ON c.dominio_id = d.id 
-                WHERE c.dominio_id = :dominio_id";
-        
-        $params = [':dominio_id' => $dominioId];
-        $types = [':dominio_id' => PDO::PARAM_INT];
-        
-        if ($this->usesTenant) {
-            $tenantId = TenantContext::getInstance()->getTenant();
-            $sql .= " AND s.empresa_id = :empresa_id";
-            $params[':empresa_id'] = $tenantId;
-            $types[':empresa_id'] = PDO::PARAM_INT;
-        }
-        
-        $sql .= " ORDER BY c.codigo ASC";
-        
-        $stmt = $this->db->prepare($sql);
-        
-        foreach ($params as $key => $value) {
-            $stmt->bindValue($key, $value, $types[$key]);
-        }
-        
-        $stmt->execute();
-        
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
-
     public function findByControlId(int $controlId): ?array
     {
         $sql = "SELECT s.*, c.codigo, c.nombre as control_nombre, c.descripcion, c.objetivo,
@@ -286,72 +114,23 @@ class SOARepository extends Repository
                 FROM {$this->table} s 
                 INNER JOIN controles c ON s.control_id = c.id 
                 INNER JOIN controles_dominio d ON c.dominio_id = d.id 
-                WHERE s.control_id = :control_id";
+                WHERE s.control_id = ?";
         
-        $params = [':control_id' => $controlId];
-        $types = [':control_id' => PDO::PARAM_INT];
+        $params = [$controlId];
         
         if ($this->usesTenant) {
             $tenantId = TenantContext::getInstance()->getTenant();
-            $sql .= " AND s.empresa_id = :empresa_id";
-            $params[':empresa_id'] = $tenantId;
-            $types[':empresa_id'] = PDO::PARAM_INT;
+            $sql .= " AND s.empresa_id = ?";
+            $params[] = $tenantId;
         }
         
         $sql .= " LIMIT 1";
         
         $stmt = $this->db->prepare($sql);
-        
-        foreach ($params as $key => $value) {
-            $stmt->bindValue($key, $value, $types[$key]);
-        }
-        
-        $stmt->execute();
+        $stmt->execute($params);
         
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         return $result ?: null;
-    }
-
-    public function updateEstado(int $soaId, string $estado, ?string $justificacion = null): bool
-    {
-        // Whitelist de estados válidos
-        if (!in_array($estado, ['no_implementado', 'parcial', 'implementado'], true)) {
-            return false;
-        }
-        
-        $sql = "UPDATE {$this->table} 
-                SET estado = :estado, 
-                    justificacion = :justificacion,
-                    fecha_evaluacion = CURDATE(),
-                    updated_at = NOW() 
-                WHERE id = :id";
-        
-        $params = [
-            ':id' => $soaId,
-            ':estado' => $estado,
-            ':justificacion' => $justificacion
-        ];
-        
-        $types = [
-            ':id' => PDO::PARAM_INT,
-            ':estado' => PDO::PARAM_STR,
-            ':justificacion' => PDO::PARAM_STR
-        ];
-        
-        if ($this->usesTenant) {
-            $tenantId = TenantContext::getInstance()->getTenant();
-            $sql .= " AND empresa_id = :empresa_id";
-            $params[':empresa_id'] = $tenantId;
-            $types[':empresa_id'] = PDO::PARAM_INT;
-        }
-        
-        $stmt = $this->db->prepare($sql);
-        
-        foreach ($params as $key => $value) {
-            $stmt->bindValue($key, $value, $types[$key]);
-        }
-        
-        return $stmt->execute();
     }
 
     public function getEstadisticas(): array
@@ -366,22 +145,15 @@ class SOARepository extends Repository
                 FROM {$this->table}";
         
         $params = [];
-        $types = [];
         
         if ($this->usesTenant) {
             $tenantId = TenantContext::getInstance()->getTenant();
-            $sql .= " WHERE empresa_id = :empresa_id";
-            $params[':empresa_id'] = $tenantId;
-            $types[':empresa_id'] = PDO::PARAM_INT;
+            $sql .= " WHERE empresa_id = ?";
+            $params[] = $tenantId;
         }
         
         $stmt = $this->db->prepare($sql);
-        
-        foreach ($params as $key => $value) {
-            $stmt->bindValue($key, $value, $types[$key]);
-        }
-        
-        $stmt->execute();
+        $stmt->execute($params);
         
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         
@@ -407,24 +179,17 @@ class SOARepository extends Repository
                 INNER JOIN controles_dominio d ON c.dominio_id = d.id";
         
         $params = [];
-        $types = [];
         
         if ($this->usesTenant) {
             $tenantId = TenantContext::getInstance()->getTenant();
-            $sql .= " WHERE s.empresa_id = :empresa_id";
-            $params[':empresa_id'] = $tenantId;
-            $types[':empresa_id'] = PDO::PARAM_INT;
+            $sql .= " WHERE s.empresa_id = ?";
+            $params[] = $tenantId;
         }
         
         $sql .= " GROUP BY d.id ORDER BY d.codigo ASC";
         
         $stmt = $this->db->prepare($sql);
-        
-        foreach ($params as $key => $value) {
-            $stmt->bindValue($key, $value, $types[$key]);
-        }
-        
-        $stmt->execute();
+        $stmt->execute($params);
         
         $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
         

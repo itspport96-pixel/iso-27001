@@ -5,7 +5,7 @@ $csrfToken = CsrfMiddleware::getToken();
 
 <h2>Controles ISO 27001</h2>
 
-<h3>Estadísticas Generales</h3>
+<h3>Estadisticas Generales</h3>
 <p>Total de controles: <?= $estadisticas['total'] ?></p>
 <p>Controles NO aplicables: <?= $estadisticas['no_aplicables'] ?></p>
 <p>Controles aplicables: <?= $estadisticas['aplicables'] ?></p>
@@ -15,8 +15,8 @@ $csrfToken = CsrfMiddleware::getToken();
 
 <hr>
 
-<h3>Búsqueda en tiempo real</h3>
-<input type="text" id="searchInput" placeholder="Buscar por código, nombre o descripción..." autocomplete="off">
+<h3>Busqueda en tiempo real</h3>
+<input type="text" id="searchInput" placeholder="Buscar por codigo, nombre o descripcion..." autocomplete="off">
 
 <hr>
 
@@ -49,34 +49,7 @@ $csrfToken = CsrfMiddleware::getToken();
 <div id="loadingSpinner" style="display: none;">Cargando...</div>
 
 <div id="controlesContainer">
-    <?php if (empty($soas)): ?>
-        <p>No hay controles disponibles</p>
-    <?php else: ?>
-        <table border="1" cellpadding="5" cellspacing="0">
-            <thead>
-                <tr>
-                    <th>Código</th>
-                    <th>Nombre</th>
-                    <th>Dominio</th>
-                    <th>Aplicable</th>
-                    <th>Estado</th>
-                    <th>Acciones</th>
-                </tr>
-            </thead>
-            <tbody id="controlesTableBody">
-                <?php foreach ($soas as $soa): ?>
-                    <tr>
-                        <td><?= htmlspecialchars($soa['codigo']) ?></td>
-                        <td><?= htmlspecialchars($soa['control_nombre']) ?></td>
-                        <td><?= htmlspecialchars($soa['dominio_nombre']) ?></td>
-                        <td><?= $soa['aplicable'] ? 'Sí' : 'No' ?></td>
-                        <td><?= htmlspecialchars(ucfirst(str_replace('_', ' ', $soa['estado']))) ?></td>
-                        <td><a href="/controles/<?= $soa['id'] ?>">Ver/Editar</a></td>
-                    </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
-    <?php endif; ?>
+    <p>Use los filtros o busqueda para ver los controles</p>
 </div>
 
 <div id="paginationContainer"></div>
@@ -86,9 +59,7 @@ $csrfToken = CsrfMiddleware::getToken();
 
 <script>
 (function() {
-    'use strict';
-    
-    const state = {
+    var state = {
         currentPage: 1,
         perPage: 10,
         searchQuery: '',
@@ -97,19 +68,18 @@ $csrfToken = CsrfMiddleware::getToken();
         isSearching: false
     };
 
-    const el = {
+    var el = {
         searchInput: document.getElementById('searchInput'),
         filterDominio: document.getElementById('filterDominio'),
         filterEstado: document.getElementById('filterEstado'),
         filterAplicable: document.getElementById('filterAplicable'),
         container: document.getElementById('controlesContainer'),
-        tbody: document.getElementById('controlesTableBody'),
         pagination: document.getElementById('paginationContainer'),
         loading: document.getElementById('loadingSpinner')
     };
 
     function escapeHtml(text) {
-        const div = document.createElement('div');
+        var div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
     }
@@ -118,46 +88,53 @@ $csrfToken = CsrfMiddleware::getToken();
         if (el.loading) el.loading.style.display = isLoading ? 'block' : 'none';
     }
 
-    async function loadControles() {
+    function loadControles() {
         if (state.isSearching) return;
         
         state.isSearching = true;
         setLoading(true);
 
-        try {
-            const params = new URLSearchParams({
-                page: state.currentPage,
-                per_page: state.perPage,
-                search: state.searchQuery,
-                dominio: state.filters.dominio,
-                estado: state.filters.estado,
-                aplicable: state.filters.aplicable
-            });
+        var params = new URLSearchParams({
+            page: state.currentPage,
+            per_page: state.perPage,
+            search: state.searchQuery,
+            dominio: state.filters.dominio,
+            estado: state.filters.estado,
+            aplicable: state.filters.aplicable
+        });
 
-            const response = await fetch('/controles/search?' + params.toString(), {
-                method: 'GET',
-                headers: { 'X-Requested-With': 'XMLHttpRequest' }
-            });
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '/controles/search?' + params.toString(), true);
+        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
 
-            if (!response.ok) {
-                throw new Error('HTTP error! status: ' + response.status);
-            }
-
-            const data = await response.json();
-
-            if (data.success) {
-                renderControles(data.data);
-                renderPagination(data.pagination);
-            } else {
-                showError(data.error || 'Error al cargar controles');
-            }
-        } catch (error) {
-            console.error('Error:', error);
-            showError('Error de conexión. Por favor, intenta nuevamente.');
-        } finally {
+        xhr.onload = function() {
             state.isSearching = false;
             setLoading(false);
-        }
+
+            if (xhr.status === 200) {
+                try {
+                    var data = JSON.parse(xhr.responseText);
+                    if (data.success) {
+                        renderControles(data.data);
+                        renderPagination(data.pagination);
+                    } else {
+                        showError(data.error || 'Error al cargar controles');
+                    }
+                } catch (e) {
+                    showError('Error al procesar la respuesta');
+                }
+            } else {
+                showError('Error de conexion. Por favor, intenta nuevamente.');
+            }
+        };
+
+        xhr.onerror = function() {
+            state.isSearching = false;
+            setLoading(false);
+            showError('Error de conexion. Por favor, intenta nuevamente.');
+        };
+
+        xhr.send();
     }
 
     function renderControles(controles) {
@@ -168,42 +145,36 @@ $csrfToken = CsrfMiddleware::getToken();
             return;
         }
 
-        const rows = controles.map(soa => {
-            const aplicable = soa.aplicable ? 'Sí' : 'No';
-            const estado = soa.estado.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+        var rows = '';
+        for (var i = 0; i < controles.length; i++) {
+            var soa = controles[i];
+            var aplicable = soa.aplicable ? 'Si' : 'No';
+            var estado = soa.estado.replace('_', ' ');
+            estado = estado.charAt(0).toUpperCase() + estado.slice(1);
 
-            return `
-                <tr>
-                    <td>${escapeHtml(soa.codigo)}</td>
-                    <td>${escapeHtml(soa.control_nombre)}</td>
-                    <td>${escapeHtml(soa.dominio_nombre)}</td>
-                    <td>${aplicable}</td>
-                    <td>${estado}</td>
-                    <td><a href="/controles/${soa.id}">Ver/Editar</a></td>
-                </tr>
-            `;
-        }).join('');
-
-        if (el.tbody) {
-            el.tbody.innerHTML = rows;
-        } else {
-            el.container.innerHTML = `
-                <table border="1" cellpadding="5" cellspacing="0">
-                    <thead>
-                        <tr>
-                            <th>Código</th>
-                            <th>Nombre</th>
-                            <th>Dominio</th>
-                            <th>Aplicable</th>
-                            <th>Estado</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody id="controlesTableBody">${rows}</tbody>
-                </table>
-            `;
-            el.tbody = document.getElementById('controlesTableBody');
+            rows += '<tr>' +
+                '<td>' + escapeHtml(soa.codigo) + '</td>' +
+                '<td>' + escapeHtml(soa.control_nombre) + '</td>' +
+                '<td>' + escapeHtml(soa.dominio_nombre) + '</td>' +
+                '<td>' + aplicable + '</td>' +
+                '<td>' + estado + '</td>' +
+                '<td><a href="/controles/' + soa.id + '">Ver/Editar</a></td>' +
+                '</tr>';
         }
+
+        el.container.innerHTML = '<table border="1" cellpadding="5" cellspacing="0">' +
+            '<thead>' +
+            '<tr>' +
+            '<th>Codigo</th>' +
+            '<th>Nombre</th>' +
+            '<th>Dominio</th>' +
+            '<th>Aplicable</th>' +
+            '<th>Estado</th>' +
+            '<th>Acciones</th>' +
+            '</tr>' +
+            '</thead>' +
+            '<tbody>' + rows + '</tbody>' +
+            '</table>';
     }
 
     function renderPagination(pagination) {
@@ -213,30 +184,30 @@ $csrfToken = CsrfMiddleware::getToken();
             return;
         }
 
-        const pages = [];
-        const current = pagination.page;
-        const last = pagination.last_page;
+        var pages = [];
+        var current = pagination.page;
+        var last = pagination.last_page;
 
-        pages.push(`<button onclick="window.controlesApp.goToPage(${current - 1})" ${current === 1 ? 'disabled' : ''}>← Anterior</button>`);
+        pages.push('<button onclick="window.controlesApp.goToPage(' + (current - 1) + ')" ' + (current === 1 ? 'disabled' : '') + '>← Anterior</button>');
 
         if (current > 3) {
-            pages.push(`<button onclick="window.controlesApp.goToPage(1)">1</button>`);
+            pages.push('<button onclick="window.controlesApp.goToPage(1)">1</button>');
             if (current > 4) pages.push('<span>...</span>');
         }
 
-        for (let i = Math.max(1, current - 2); i <= Math.min(last, current + 2); i++) {
-            const isActive = i === current;
-            pages.push(`<button onclick="window.controlesApp.goToPage(${i})" ${isActive ? 'disabled' : ''}>${i}</button>`);
+        for (var i = Math.max(1, current - 2); i <= Math.min(last, current + 2); i++) {
+            var isActive = i === current;
+            pages.push('<button onclick="window.controlesApp.goToPage(' + i + ')" ' + (isActive ? 'disabled' : '') + '>' + i + '</button>');
         }
 
         if (current < last - 2) {
             if (current < last - 3) pages.push('<span>...</span>');
-            pages.push(`<button onclick="window.controlesApp.goToPage(${last})">${last}</button>`);
+            pages.push('<button onclick="window.controlesApp.goToPage(' + last + ')">' + last + '</button>');
         }
 
-        pages.push(`<button onclick="window.controlesApp.goToPage(${current + 1})" ${current === last ? 'disabled' : ''}>Siguiente →</button>`);
+        pages.push('<button onclick="window.controlesApp.goToPage(' + (current + 1) + ')" ' + (current === last ? 'disabled' : '') + '>Siguiente →</button>');
 
-        el.pagination.innerHTML = pages.join('') + `<p>Mostrando ${(current - 1) * pagination.per_page + 1} - ${Math.min(current * pagination.per_page, pagination.total)} de ${pagination.total} controles</p>`;
+        el.pagination.innerHTML = pages.join('') + '<p>Mostrando ' + ((current - 1) * pagination.per_page + 1) + ' - ' + Math.min(current * pagination.per_page, pagination.total) + ' de ' + pagination.total + ' controles</p>';
     }
 
     function showError(message) {
@@ -248,7 +219,7 @@ $csrfToken = CsrfMiddleware::getToken();
     if (el.searchInput) {
         el.searchInput.addEventListener('input', function(e) {
             clearTimeout(state.searchTimeout);
-            state.searchTimeout = setTimeout(() => {
+            state.searchTimeout = setTimeout(function() {
                 state.searchQuery = e.target.value.trim();
                 state.currentPage = 1;
                 loadControles();
@@ -256,16 +227,29 @@ $csrfToken = CsrfMiddleware::getToken();
         });
     }
 
-    [el.filterDominio, el.filterEstado, el.filterAplicable].forEach((element, index) => {
-        if (element) {
-            const names = ['dominio', 'estado', 'aplicable'];
-            element.addEventListener('change', function(e) {
-                state.filters[names[index]] = e.target.value;
-                state.currentPage = 1;
-                loadControles();
-            });
-        }
-    });
+    if (el.filterDominio) {
+        el.filterDominio.addEventListener('change', function(e) {
+            state.filters.dominio = e.target.value;
+            state.currentPage = 1;
+            loadControles();
+        });
+    }
+
+    if (el.filterEstado) {
+        el.filterEstado.addEventListener('change', function(e) {
+            state.filters.estado = e.target.value;
+            state.currentPage = 1;
+            loadControles();
+        });
+    }
+
+    if (el.filterAplicable) {
+        el.filterAplicable.addEventListener('change', function(e) {
+            state.filters.aplicable = e.target.value;
+            state.currentPage = 1;
+            loadControles();
+        });
+    }
 
     window.controlesApp = {
         goToPage: function(page) {
@@ -275,5 +259,7 @@ $csrfToken = CsrfMiddleware::getToken();
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
     };
+
+    loadControles();
 })();
 </script>

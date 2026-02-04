@@ -39,12 +39,26 @@ class ControlController extends Controller
         $empresaId = $this->user()['empresa_id'];
         TenantContext::getInstance()->setTenant($empresaId);
 
+        $dominioId = $request->get('dominio');
+        $estado = $request->get('estado');
+        $aplicable = $request->get('aplicable');
+
+        if ($dominioId || $estado || $aplicable !== null) {
+            $soas = $this->soaRepo->getByFiltros($dominioId, $estado, $aplicable);
+        } else {
+            $soas = $this->soaRepo->getWithControlInfo();
+        }
+
         $dominios = $this->controlRepo->getAllDominios();
         $estadisticas = $this->soaRepo->getEstadisticas();
 
         $this->view('controles/index', [
+            'soas' => $soas,
             'dominios' => $dominios,
-            'estadisticas' => $estadisticas
+            'estadisticas' => $estadisticas,
+            'filtro_dominio' => $dominioId,
+            'filtro_estado' => $estado,
+            'filtro_aplicable' => $aplicable
         ]);
     }
 
@@ -52,43 +66,62 @@ class ControlController extends Controller
     {
         $this->request = $request;
         $this->response = $response;
-        $this->requireAuth();
-
-        if (!RoleMiddleware::can('controles.view')) {
-            $this->json(['success' => false, 'error' => 'Acceso denegado'], 403);
-            return;
-        }
-
-        $empresaId = $this->user()['empresa_id'];
-        TenantContext::getInstance()->setTenant($empresaId);
-
-        $searchQuery = $request->get('search') ?? '';
-        $page = max(1, (int)($request->get('page') ?? 1));
-        $perPage = max(1, min(100, (int)($request->get('per_page') ?? 10)));
         
-        $dominioId = $request->get('dominio');
-        $estado = $request->get('estado');
-        $aplicable = $request->get('aplicable');
+        try {
+            $this->requireAuth();
 
-        $result = $this->soaRepo->searchWithPagination(
-            $searchQuery,
-            $page,
-            $perPage,
-            $dominioId,
-            $estado,
-            $aplicable
-        );
+            if (!RoleMiddleware::can('controles.view')) {
+                $this->json(['success' => false, 'error' => 'Acceso denegado'], 403);
+                return;
+            }
 
-        $this->json([
-            'success' => true,
-            'data' => $result['data'],
-            'pagination' => [
-                'page' => $result['page'],
-                'per_page' => $result['per_page'],
-                'total' => $result['total'],
-                'last_page' => $result['last_page']
-            ]
-        ]);
+            $empresaId = $this->user()['empresa_id'];
+            
+            if (!$empresaId) {
+                $this->json(['success' => false, 'error' => 'Empresa no identificada'], 400);
+                return;
+            }
+            
+            TenantContext::getInstance()->setTenant($empresaId);
+
+            $searchQuery = $request->get('search') ?? '';
+            $page = max(1, (int)($request->get('page') ?? 1));
+            $perPage = max(1, min(100, (int)($request->get('per_page') ?? 10)));
+            
+            $dominioId = $request->get('dominio');
+            $estado = $request->get('estado');
+            $aplicable = $request->get('aplicable');
+
+            $result = $this->soaRepo->searchWithPagination(
+                $searchQuery,
+                $page,
+                $perPage,
+                $dominioId,
+                $estado,
+                $aplicable
+            );
+
+            $this->json([
+                'success' => true,
+                'data' => $result['data'],
+                'pagination' => [
+                    'page' => $result['page'],
+                    'per_page' => $result['per_page'],
+                    'total' => $result['total'],
+                    'last_page' => $result['last_page']
+                ]
+            ]);
+            
+        } catch (\Exception $e) {
+            error_log("ControlController::search ERROR: " . $e->getMessage());
+            error_log("Stack trace: " . $e->getTraceAsString());
+            
+            $this->json([
+                'success' => false, 
+                'error' => 'Error interno del servidor',
+                'debug' => $_ENV['APP_DEBUG'] === 'true' ? $e->getMessage() : null
+            ], 500);
+        }
     }
 
     public function show(Request $request, Response $response, string $id): void

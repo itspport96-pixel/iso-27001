@@ -19,6 +19,9 @@ use App\Controllers\RequerimientoController;
 use App\Controllers\AuditController;
 use App\Middleware\CsrfMiddleware;
 use App\Middleware\AuthMiddleware;
+use App\Middleware\RateLimitMiddleware;
+use App\Middleware\RoleMiddleware;
+use App\Middleware\TenantMiddleware;
 
 // Cargar variables de entorno
 $dotenv = Dotenv::createImmutable(__DIR__ . '/..');
@@ -46,57 +49,57 @@ $log->info('Request received', [
     'ip' => $request->ip()
 ]);
 
-// Rutas públicas
+// Rutas publicas
 $router->get('/', function($request, $response) {
     $response->html('<h1>ISO 27001 Compliance Platform v2.0</h1><p>Sistema iniciado correctamente</p><a href="/register">Registrarse</a> | <a href="/login">Login</a>');
 });
 
-// Rutas de autenticación
+// Rutas de autenticacion
 $router->get('/register', [AuthController::class, 'showRegister']);
 $router->post('/register', [AuthController::class, 'register'], [CsrfMiddleware::class]);
 
 $router->get('/login', [AuthController::class, 'showLogin']);
-$router->post('/login', [AuthController::class, 'login'], [CsrfMiddleware::class]);
+$router->post('/login', [AuthController::class, 'login'], [CsrfMiddleware::class, RateLimitMiddleware::class]);
 
 $router->get('/logout', [AuthController::class, 'logout']);
 
 // Dashboard
-$router->get('/dashboard', [DashboardController::class, 'index']);
+$router->get('/dashboard', [DashboardController::class, 'index'], [AuthMiddleware::class, TenantMiddleware::class]);
 
 // Rutas de controles
-$router->get('/controles', [ControlController::class, 'index']);
-$router->get('/controles/search', [ControlController::class, 'search']);
-$router->get('/controles/estadisticas', [ControlController::class, 'estadisticas']);
-$router->get('/controles/{id}', [ControlController::class, 'show']);
-$router->post('/controles/{id}/update', [ControlController::class, 'update'], [CsrfMiddleware::class, AuthMiddleware::class]);
+$router->get('/controles', [ControlController::class, 'index'], [AuthMiddleware::class, TenantMiddleware::class]);
+$router->get('/controles/search', [ControlController::class, 'search'], [AuthMiddleware::class, TenantMiddleware::class]);
+$router->get('/controles/estadisticas', [ControlController::class, 'estadisticas'], [AuthMiddleware::class, TenantMiddleware::class]);
+$router->get('/controles/{id}', [ControlController::class, 'show'], [AuthMiddleware::class, TenantMiddleware::class]);
+$router->post('/controles/{id}/update', [ControlController::class, 'update'], [CsrfMiddleware::class, AuthMiddleware::class, TenantMiddleware::class]);
 
 // Rutas de GAPs
-$router->get('/gaps', [GapController::class, 'index']);
-$router->get('/gaps/create', [GapController::class, 'create']);
-$router->post('/gaps/store', [GapController::class, 'store'], [CsrfMiddleware::class, AuthMiddleware::class]);
-$router->get('/gaps/{id}', [GapController::class, 'show']);
-$router->post('/gaps/{id}/update', [GapController::class, 'update'], [CsrfMiddleware::class, AuthMiddleware::class]);
-$router->post('/gaps/{id}/delete', [GapController::class, 'delete'], [CsrfMiddleware::class, AuthMiddleware::class]);
-$router->post('/gaps/accion/{id}/update', [GapController::class, 'updateAccion'], [CsrfMiddleware::class, AuthMiddleware::class]);
-$router->post('/gaps/accion/{id}/completar', [GapController::class, 'completarAccion'], [CsrfMiddleware::class, AuthMiddleware::class]);
+$router->get('/gaps', [GapController::class, 'index'], [AuthMiddleware::class, TenantMiddleware::class]);
+$router->get('/gaps/create', [GapController::class, 'create'], [AuthMiddleware::class, TenantMiddleware::class]);
+$router->post('/gaps/store', [GapController::class, 'store'], [CsrfMiddleware::class, AuthMiddleware::class, TenantMiddleware::class]);
+$router->get('/gaps/{id}', [GapController::class, 'show'], [AuthMiddleware::class, TenantMiddleware::class]);
+$router->post('/gaps/{id}/update', [GapController::class, 'update'], [CsrfMiddleware::class, AuthMiddleware::class, TenantMiddleware::class]);
+$router->post('/gaps/{id}/delete', [GapController::class, 'delete'], [CsrfMiddleware::class, AuthMiddleware::class, TenantMiddleware::class]);
+$router->post('/gaps/accion/{id}/update', [GapController::class, 'updateAccion'], [CsrfMiddleware::class, AuthMiddleware::class, TenantMiddleware::class]);
+$router->post('/gaps/accion/{id}/completar', [GapController::class, 'completarAccion'], [CsrfMiddleware::class, AuthMiddleware::class, TenantMiddleware::class]);
 
 // Rutas de Evidencias
-$router->get('/evidencias', [EvidenciaController::class, 'index']);
-$router->get('/evidencias/create', [EvidenciaController::class, 'create']);
-$router->post('/evidencias/store', [EvidenciaController::class, 'store'], [CsrfMiddleware::class, AuthMiddleware::class]);
-$router->get('/evidencias/{id}', [EvidenciaController::class, 'show']);
-$router->post('/evidencias/{id}/validar', [EvidenciaController::class, 'validar'], [CsrfMiddleware::class, AuthMiddleware::class]);
-$router->post('/evidencias/{id}/delete', [EvidenciaController::class, 'delete'], [CsrfMiddleware::class, AuthMiddleware::class]);
-$router->get('/evidencias/{id}/download', [EvidenciaController::class, 'download']);
+$router->get('/evidencias', [EvidenciaController::class, 'index'], [AuthMiddleware::class, TenantMiddleware::class]);
+$router->get('/evidencias/create', [EvidenciaController::class, 'create'], [AuthMiddleware::class, TenantMiddleware::class]);
+$router->post('/evidencias/store', [EvidenciaController::class, 'store'], [CsrfMiddleware::class, AuthMiddleware::class, TenantMiddleware::class, RateLimitMiddleware::class]);
+$router->get('/evidencias/{id}', [EvidenciaController::class, 'show'], [AuthMiddleware::class, TenantMiddleware::class]);
+$router->post('/evidencias/{id}/validar', [EvidenciaController::class, 'validar'], [CsrfMiddleware::class, AuthMiddleware::class, TenantMiddleware::class]);
+$router->post('/evidencias/{id}/delete', [EvidenciaController::class, 'delete'], [CsrfMiddleware::class, AuthMiddleware::class, TenantMiddleware::class]);
+$router->get('/evidencias/{id}/download', [EvidenciaController::class, 'download'], [AuthMiddleware::class, TenantMiddleware::class]);
 
 // Rutas de Requerimientos
-$router->get('/requerimientos', [RequerimientoController::class, 'index']);
-$router->get('/requerimientos/{id}', [RequerimientoController::class, 'show']);
-$router->post('/requerimientos/{id}/update', [RequerimientoController::class, 'update'], [CsrfMiddleware::class, AuthMiddleware::class]);
+$router->get('/requerimientos', [RequerimientoController::class, 'index'], [AuthMiddleware::class, TenantMiddleware::class]);
+$router->get('/requerimientos/{id}', [RequerimientoController::class, 'show'], [AuthMiddleware::class, TenantMiddleware::class]);
+$router->post('/requerimientos/{id}/update', [RequerimientoController::class, 'update'], [CsrfMiddleware::class, AuthMiddleware::class, TenantMiddleware::class]);
 
-// Rutas de Auditoría
-$router->get('/audit', [AuditController::class, 'index']);
-$router->get('/audit/{id}', [AuditController::class, 'show']);
+// Rutas de Auditoria
+$router->get('/audit', [AuditController::class, 'index'], [AuthMiddleware::class, TenantMiddleware::class]);
+$router->get('/audit/{id}', [AuditController::class, 'show'], [AuthMiddleware::class, TenantMiddleware::class]);
 
 // Manejo de errores global
 try {
