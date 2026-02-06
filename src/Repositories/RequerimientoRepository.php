@@ -73,6 +73,7 @@ class RequerimientoRepository extends Repository
         
         $sql = "SELECT c.id, c.codigo, c.nombre, c.descripcion,
                 d.nombre as dominio_nombre,
+                s.id as soa_id,
                 s.estado as estado_implementacion,
                 s.aplicable
                 FROM requerimientos_controles rc
@@ -133,23 +134,133 @@ class RequerimientoRepository extends Repository
         $total = count($controles);
         $aplicables = 0;
         $implementados = 0;
+        $controlesConEvidencias = 0;
         
         foreach ($controles as $control) {
             if ($control['aplicable'] == 1) {
                 $aplicables++;
+                
                 if ($control['estado_implementacion'] === 'implementado') {
                     $implementados++;
+                    
+                    // Verificar si tiene evidencias aprobadas
+                    if ($this->controlTieneEvidenciasAprobadas($control['id'])) {
+                        $controlesConEvidencias++;
+                    }
                 }
             }
         }
         
-        $porcentaje = $aplicables > 0 ? round(($implementados / $aplicables) * 100, 2) : 0;
+        $porcentaje = $aplicables > 0 ? round(($controlesConEvidencias / $aplicables) * 100, 2) : 0;
         
         return [
             'total_controles' => $total,
             'controles_aplicables' => $aplicables,
             'controles_implementados' => $implementados,
-            'porcentaje' => $porcentaje
+            'controles_con_evidencias' => $controlesConEvidencias,
+            'porcentaje' => $porcentaje,
+            'cumple_completitud' => ($aplicables > 0 && $controlesConEvidencias === $aplicables)
         ];
+    }
+
+    private function controlTieneEvidenciasAprobadas(int $controlId): bool
+    {
+        $tenantId = TenantContext::getInstance()->getTenant();
+        
+        $sql = "SELECT COUNT(*) 
+                FROM evidencias 
+                WHERE control_id = :control_id 
+                AND empresa_id = :empresa_id 
+                AND estado_validacion = 'aprobada'";
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->bindValue(':control_id', $controlId, PDO::PARAM_INT);
+        $stmt->bindValue(':empresa_id', $tenantId, PDO::PARAM_INT);
+        $stmt->execute();
+        
+        return (int)$stmt->fetchColumn() > 0;
+    }
+
+    public function verificarYActualizarCompletitud(int $requerimientoId): bool
+    {
+        $tenantId = TenantContext::getInstance()->getTenant();
+        
+        // Obtener el registro de empresa_requerimientos
+        $sqlReq = "SELECT id, estado FROM {$this->table} 
+                   WHERE requerimiento_id = :requerimiento_id 
+                   AND empresa_id = :empresa_id 
+                   LIMIT 1";
+        
+        $stmtReq = $this->db->prepare($sqlReq);
+        $stmtReq->bindValue(':requerimiento_id', $requerimientoId, PDO::PARAM_INT);
+        $stmtReq->bindValue(':empresa_id', $tenantId, PDO::PARAM_INT);
+        $stmtReq->execute();
+        
+        $empresaReq = $stmtReq->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$empresaReq) {
+            return false;
+        }
+        
+        // Calcular progreso
+        $progreso = $this->calcularProgresoRequerimiento($requerimientoId);
+        
+        $nuevoEstado = null;
+        $fechaCompletado = null;
+        
+        if ($progreso['cumple_completitud']) {
+            // Todos los controles implementados + evidencias aprobadas
+            $nuevoEstado = 'completado';
+            $fechaCompletado = date('Y-m-d');
+        } elseif ($progreso['controles_implementados'] > 0 || $progreso['controles_con_evidencias'] > 0) {
+            // Hay al menos algún control en progreso
+            if ($empresaReq['estado'] !== 'completado') {
+                $nuevoEstado = 'en_proceso';
+            }
+        } else {
+            // Ningún control implementado
+            if ($empresaReq['estado'] !== 'completado') {
+                $nuevoEstado = 'pendiente';
+            }
+        }
+        
+        // Solo actualizar si cambió el estado
+        if ($nuevoEstado && $nuevoEstado !== $empresaReq['estado']) {
+            $sqlUpdate = "UPDATE {$this->table} 
+                          SET estado = :estado,
+                              fecha_completado = :fecha_completado,
+                              updated_at = NOW()
+                          WHERE id = :id 
+                          AND empresa_id = :empresa_id";
+            
+            $stmtUpdate = $this->db->prepare($sqlUpdate);
+            $stmtUpdate->bindValue(':estado', $nuevoEstado);
+            $stmtUpdate->bindValue(':fecha_completado', $fechaCompletado);
+            $stmtUpdate->bindValue(':id', $empresaReq['id'], PDO::PARAM_INT);
+            $stmtUpdate->bindValue(':empresa_id', $tenantId, PDO::PARAM_INT);
+            
+            return $stmtUpdate->execute();
+        }
+        
+        return false;
+    }
+
+    public function verificarTodosLosRequerimientos(): void
+    {
+        $tenantId = TenantContext::getInstance()->getTenant();
+        
+        $sql = "SELECT DISTINCT requerimiento_id 
+                FROM {$this->table} 
+                WHERE empresa_id = :empresa_id";
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->bindValue(':empresa_id', $tenantId, PDO::PARAM_INT);
+        $stmt->execute();
+        
+        $requerimientos = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        
+        foreach ($requerimientos as $reqId) {
+            $this->verificarYActualizarCompletitud($reqId);
+        }
     }
 }

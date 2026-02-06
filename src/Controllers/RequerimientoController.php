@@ -101,7 +101,7 @@ class RequerimientoController extends Controller
         $validator = new Validator($request->all());
 
         $rules = [
-            'estado' => 'required|in:pendiente,en_proceso,completado'
+            'observaciones' => 'max:1000'
         ];
 
         if (!$validator->validate($rules)) {
@@ -117,11 +117,13 @@ class RequerimientoController extends Controller
         }
 
         $requerimientoModel = new Requerimiento();
-        $result = $requerimientoModel->updateEstado(
-            (int)$id,
-            $request->post('estado'),
-            $request->post('observaciones')
-        );
+        
+        // Solo permitir actualizar observaciones, el estado se gestiona automáticamente
+        $data = [
+            'observaciones' => $request->post('observaciones')
+        ];
+
+        $result = $requerimientoModel->update((int)$id, $data);
 
         if ($result) {
             $this->auditService->log(
@@ -129,16 +131,14 @@ class RequerimientoController extends Controller
                 'empresa_requerimientos',
                 (int)$id,
                 [
-                    'estado' => $requerimientoAnterior['estado'],
                     'observaciones' => $requerimientoAnterior['observaciones']
                 ],
                 [
-                    'estado' => $request->post('estado'),
                     'observaciones' => $request->post('observaciones')
                 ]
             );
 
-            $this->json(['success' => true, 'message' => 'Requerimiento actualizado']);
+            $this->json(['success' => true, 'message' => 'Observaciones actualizadas']);
         } else {
             $this->json(['success' => false, 'error' => 'Error al actualizar'], 500);
         }

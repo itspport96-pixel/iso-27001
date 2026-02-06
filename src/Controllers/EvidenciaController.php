@@ -9,6 +9,7 @@ use App\Core\TenantContext;
 use App\Core\Validator;
 use App\Repositories\EvidenciaRepository;
 use App\Repositories\ControlRepository;
+use App\Repositories\RequerimientoRepository;
 use App\Services\AuditService;
 use App\Models\Evidencia;
 use App\Services\FileService;
@@ -18,6 +19,7 @@ class EvidenciaController extends Controller
 {
     private EvidenciaRepository $evidenciaRepo;
     private ControlRepository $controlRepo;
+    private RequerimientoRepository $requerimientoRepo;
     private FileService $fileService;
     private AuditService $auditService;
 
@@ -26,6 +28,7 @@ class EvidenciaController extends Controller
         parent::__construct();
         $this->evidenciaRepo = new EvidenciaRepository();
         $this->controlRepo = new ControlRepository();
+        $this->requerimientoRepo = new RequerimientoRepository();
         $this->fileService = new FileService();
         $this->auditService = new AuditService();
     }
@@ -281,6 +284,9 @@ class EvidenciaController extends Controller
                         ':empresa_id' => $empresaId
                     ]);
                 }
+                
+                // NUEVO: Verificar y actualizar completitud de requerimientos
+                $this->requerimientoRepo->verificarTodosLosRequerimientos();
             }
 
             $db->commit();
