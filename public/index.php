@@ -16,6 +16,8 @@ use App\Controllers\ControlController;
 use App\Controllers\GapController;
 use App\Controllers\EvidenciaController;
 use App\Controllers\RequerimientoController;
+use App\Controllers\PerfilController;
+use App\Controllers\UsuarioController;
 use App\Controllers\AuditController;
 use App\Middleware\CsrfMiddleware;
 use App\Middleware\AuthMiddleware;
@@ -96,6 +98,19 @@ $router->get('/evidencias/{id}/download', [EvidenciaController::class, 'download
 $router->get('/requerimientos', [RequerimientoController::class, 'index'], [AuthMiddleware::class, TenantMiddleware::class]);
 $router->get('/requerimientos/{id}', [RequerimientoController::class, 'show'], [AuthMiddleware::class, TenantMiddleware::class]);
 $router->post('/requerimientos/{id}/update', [RequerimientoController::class, 'update'], [CsrfMiddleware::class, AuthMiddleware::class, TenantMiddleware::class]);
+
+// Rutas de Perfil
+$router->get('/perfil', [PerfilController::class, 'index'], [AuthMiddleware::class, TenantMiddleware::class]);
+$router->post('/perfil/update-datos', [PerfilController::class, 'updateDatos'], [CsrfMiddleware::class, AuthMiddleware::class, TenantMiddleware::class]);
+$router->post('/perfil/update-password', [PerfilController::class, 'updatePassword'], [CsrfMiddleware::class, AuthMiddleware::class, TenantMiddleware::class]);
+
+// Rutas de Usuarios
+$router->get('/usuarios', [UsuarioController::class, 'index'], [AuthMiddleware::class, TenantMiddleware::class]);
+$router->get('/usuarios/create', [UsuarioController::class, 'create'], [AuthMiddleware::class, TenantMiddleware::class]);
+$router->post('/usuarios/store', [UsuarioController::class, 'store'], [CsrfMiddleware::class, AuthMiddleware::class, TenantMiddleware::class]);
+$router->get('/usuarios/{id}/edit', [UsuarioController::class, 'edit'], [AuthMiddleware::class, TenantMiddleware::class]);
+$router->post('/usuarios/{id}/update', [UsuarioController::class, 'update'], [CsrfMiddleware::class, AuthMiddleware::class, TenantMiddleware::class]);
+$router->post('/usuarios/{id}/delete', [UsuarioController::class, 'delete'], [CsrfMiddleware::class, AuthMiddleware::class, TenantMiddleware::class]);
 
 // Rutas de Auditoria
 $router->get('/audit', [AuditController::class, 'index'], [AuthMiddleware::class, TenantMiddleware::class]);

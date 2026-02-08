@@ -26,10 +26,6 @@ class RoleMiddleware
 
         $userRole = $this->session->get('user_rol');
 
-        if ($userRole === 'super_admin') {
-            return;
-        }
-
         if (!empty($this->allowedRoles) && !in_array($userRole, $this->allowedRoles)) {
             $response->error('Acceso denegado', 403);
             exit;
@@ -47,12 +43,19 @@ class RoleMiddleware
         $role = $session->get('user_rol');
 
         $permissions = [
-            'super_admin' => ['*'],
+            'super_admin' => [
+                'controles.view', 'controles.edit',
+                'gaps.view', 'gaps.create', 'gaps.edit', 'gaps.delete',
+                'evidencias.view', 'evidencias.upload', 'evidencias.validate', 'evidencias.delete',
+                'usuarios.view', 'usuarios.create', 'usuarios.edit', 'usuarios.delete',
+                'requerimientos.view', 'requerimientos.edit',
+                'dashboard.view', 'audit.view'
+            ],
             'admin_empresa' => [
                 'controles.view', 'controles.edit',
                 'gaps.view', 'gaps.create', 'gaps.edit', 'gaps.delete',
                 'evidencias.view', 'evidencias.upload', 'evidencias.validate', 'evidencias.delete',
-                'usuarios.view', 'usuarios.create', 'usuarios.edit',
+                'usuarios.view', 'usuarios.create', 'usuarios.edit', 'usuarios.delete',
                 'requerimientos.view', 'requerimientos.edit',
                 'dashboard.view', 'audit.view'
             ],
@@ -74,10 +77,6 @@ class RoleMiddleware
 
         if (!isset($permissions[$role])) {
             return false;
-        }
-
-        if (in_array('*', $permissions[$role])) {
-            return true;
         }
 
         return in_array($permission, $permissions[$role]);

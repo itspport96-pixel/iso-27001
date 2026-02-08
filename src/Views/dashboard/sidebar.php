@@ -21,5 +21,12 @@
                 <a href="/audit" class="menu-link">Auditoría</a>
             </li>
         </ul>
+        
+        <h3 class="sidebar-title">Configuración</h3>
+        <ul class="sidebar-menu">
+            <li class="menu-item">
+                <a href="/perfil" class="menu-link">Mi Perfil</a>
+            </li>
+        </ul>
     </nav>
 </aside>
