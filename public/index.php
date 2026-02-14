@@ -130,6 +130,12 @@ $router->post('/configuracion/empresa', [ConfiguracionController::class, 'saveEm
 $router->post('/configuracion/smtp', [ConfiguracionController::class, 'saveSmtp'], [CsrfMiddleware::class, AuthMiddleware::class, TenantMiddleware::class]);
 $router->post('/configuracion/smtp/test', [ConfiguracionController::class, 'testSmtp'], [CsrfMiddleware::class, AuthMiddleware::class, TenantMiddleware::class]);
 
+// Rutas de Notificaciones
+$router->get('/notificaciones', [NotificacionController::class, 'index'], [AuthMiddleware::class, TenantMiddleware::class]);
+$router->get('/notificaciones/resumen', [NotificacionController::class, 'getResumen'], [AuthMiddleware::class, TenantMiddleware::class]);
+$router->post('/notificaciones/enviar', [NotificacionController::class, 'enviar'], [CsrfMiddleware::class, AuthMiddleware::class, TenantMiddleware::class]);
+$router->get('/notificaciones/historial', [NotificacionController::class, 'getHistorial'], [AuthMiddleware::class, TenantMiddleware::class]);
+
 // Manejo de errores global
 try {
     $router->dispatch($request, $response);
