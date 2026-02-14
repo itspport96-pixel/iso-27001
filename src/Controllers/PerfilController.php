@@ -160,13 +160,29 @@ class PerfilController extends Controller
             return;
         }
 
-        $nuevaPasswordHash = password_hash($request->post('password_nueva'), PASSWORD_ARGON2ID);
+        $nuevaPassword = $request->post('password_nueva');
+
+        // Validar políticas de contraseña
+        $policyValidation = $this->passwordPolicy->validateNewPassword($userId, $nuevaPassword);
+        if (!$policyValidation['valid']) {
+            $this->json([
+                'success' => false, 
+                'error' => implode('. ', $policyValidation['errors'])
+            ], 400);
+            return;
+        }
+
+        $nuevaPasswordHash = password_hash($nuevaPassword, PASSWORD_ARGON2ID);
 
         $result = $usuarioModel->update($userId, [
-            'password_hash' => $nuevaPasswordHash
+            'password_hash' => $nuevaPasswordHash,
+            'password_updated_at' => date('Y-m-d H:i:s')
         ]);
 
         if ($result) {
+            // Guardar en historial
+            $this->passwordPolicy->saveToHistory($userId, $nuevaPasswordHash);
+
             $this->auditService->log(
                 'UPDATE',
                 'usuarios',
