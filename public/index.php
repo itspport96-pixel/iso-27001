@@ -148,6 +148,13 @@ $router->get('/reportes/exportar/soa', [ReporteController::class, 'exportarSOAEx
 $router->get('/reportes/exportar/gaps', [ReporteController::class, 'exportarGAPsExcel'], [AuthMiddleware::class, TenantMiddleware::class]);
 $router->get('/reportes/exportar/evidencias', [ReporteController::class, 'exportarEvidenciasExcel'], [AuthMiddleware::class, TenantMiddleware::class]);
 
+// Rutas de Calendario
+$router->get('/calendario', [CalendarioController::class, 'index'], [AuthMiddleware::class, TenantMiddleware::class]);
+$router->get('/calendario/eventos', [CalendarioController::class, 'getEventos'], [AuthMiddleware::class, TenantMiddleware::class]);
+$router->post('/calendario/auditoria', [CalendarioController::class, 'crearAuditoria'], [CsrfMiddleware::class, AuthMiddleware::class, TenantMiddleware::class]);
+$router->get('/calendario/auditoria/{id}', [CalendarioController::class, 'getAuditoria'], [AuthMiddleware::class, TenantMiddleware::class]);
+$router->post('/calendario/auditoria/{id}', [CalendarioController::class, 'actualizarAuditoria'], [CsrfMiddleware::class, AuthMiddleware::class, TenantMiddleware::class]);
+
 // Manejo de errores global
 try {
     $router->dispatch($request, $response);
