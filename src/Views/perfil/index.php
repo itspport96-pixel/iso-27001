@@ -1,15 +1,33 @@
 <?php
 use App\Middleware\CsrfMiddleware;
+use App\Services\PasswordPolicyService;
+use App\Core\Session;
+
 $csrfToken = CsrfMiddleware::getToken();
+$session = new Session();
+$passwordPolicy = new PasswordPolicyService();
+
+// Calcular días hasta expiración
+$daysRemaining = $passwordPolicy->getDaysUntilExpiration($usuario['password_updated_at'] ?? null);
+$showWarning = $passwordPolicy->shouldWarnExpiration($usuario['password_updated_at'] ?? null);
 ?>
 
 <h2>Mi Perfil</h2>
 
-<h3>Información de la Cuenta</h3>
+<?php if ($showWarning): ?>
+<div style="background: #fff3cd; border: 1px solid #ffc107; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+    <strong>Advertencia:</strong> Tu contrasena expirara en <?= $daysRemaining ?> dias. 
+    Te recomendamos cambiarla pronto.
+</div>
+<?php endif; ?>
+
+<h3>Informacion de la Cuenta</h3>
 <p><strong>Rol:</strong> <?= htmlspecialchars(ucfirst(str_replace('_', ' ', $usuario['rol']))) ?></p>
 <p><strong>Estado:</strong> <?= htmlspecialchars(ucfirst($usuario['estado'])) ?></p>
-<p><strong>Último Acceso:</strong> <?= htmlspecialchars($usuario['ultimo_acceso'] ?? 'Nunca') ?></p>
+<p><strong>Ultimo Acceso:</strong> <?= htmlspecialchars($usuario['ultimo_acceso'] ?? 'Nunca') ?></p>
 <p><strong>Cuenta Creada:</strong> <?= htmlspecialchars($usuario['created_at']) ?></p>
+<p><strong>Contrasena actualizada:</strong> <?= htmlspecialchars($usuario['password_updated_at'] ?? 'No registrado') ?></p>
+<p><strong>Dias hasta expiracion:</strong> <?= $daysRemaining ?> dias</p>
 
 <hr>
 
@@ -32,24 +50,36 @@ $csrfToken = CsrfMiddleware::getToken();
 
 <hr>
 
-<h3>Cambiar Contraseña</h3>
+<h3>Cambiar Contrasena</h3>
+
+<div style="background: #f8f9fa; padding: 12px; border-radius: 6px; margin-bottom: 15px; font-size: 0.9em;">
+    <strong>Requisitos de la contrasena:</strong>
+    <ul style="margin: 8px 0 0 20px;">
+        <li>Minimo 8 caracteres</li>
+        <li>Al menos una mayuscula (A-Z)</li>
+        <li>Al menos una minuscula (a-z)</li>
+        <li>Al menos un numero (0-9)</li>
+        <li>Al menos un caracter especial (!@#$%...)</li>
+        <li>No puede ser igual a las ultimas 5 contrasenas</li>
+    </ul>
+</div>
+
 <form id="formPassword">
     <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
     
-    <label>Contraseña Actual:</label><br>
+    <label>Contrasena Actual:</label><br>
     <input type="password" name="password_actual" required style="width: 300px;">
     <br><br>
     
-    <label>Nueva Contraseña:</label><br>
+    <label>Nueva Contrasena:</label><br>
     <input type="password" name="password_nueva" required minlength="8" style="width: 300px;">
-    <br><small>Mínimo 8 caracteres</small>
     <br><br>
     
-    <label>Confirmar Nueva Contraseña:</label><br>
+    <label>Confirmar Nueva Contrasena:</label><br>
     <input type="password" name="password_confirmar" required minlength="8" style="width: 300px;">
     <br><br>
     
-    <button type="submit">Cambiar Contraseña</button>
+    <button type="submit">Cambiar Contrasena</button>
 </form>
 
 <div id="messagePassword"></div>
