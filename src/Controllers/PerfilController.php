@@ -182,7 +182,12 @@ class PerfilController extends Controller
     {
         $this->request = $request;
         $this->response = $response;
-        $this->requireAuth();
+        
+        // Validar sesion manualmente (sin pasar por requireAuth que bloquea)
+        if (!$this->isAuthenticated()) {
+            $this->json(['success' => false, 'error' => 'No autenticado'], 401);
+            return;
+        }
 
         $userId = $this->user()['id'];
         $empresaId = $this->user()['empresa_id'];
