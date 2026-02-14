@@ -268,6 +268,40 @@ class UsuarioRepository extends Repository
         return $stmt->rowCount() > 0;
     }
 
+    public function updatePasswordWithFlag(int $id, string $passwordHash): bool
+    {
+        $sql = "UPDATE {$this->table}
+                SET password_hash = :password_hash,
+                    debe_cambiar_password = 1,
+                    updated_at = NOW()
+                WHERE id = :id
+                AND deleted_at IS NULL";
+        
+        $params = [
+            ':id' => $id,
+            ':password_hash' => $passwordHash
+        ];
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        
+        return $stmt->rowCount() > 0;
+    }
+
+    public function clearPasswordFlag(int $id): bool
+    {
+        $sql = "UPDATE {$this->table}
+                SET debe_cambiar_password = 0,
+                    updated_at = NOW()
+                WHERE id = :id
+                AND deleted_at IS NULL";
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([':id' => $id]);
+        
+        return $stmt->rowCount() > 0;
+    }
+
     public function updateEstado(int $id, string $estado): bool
     {
         $sql = "UPDATE {$this->table}
