@@ -56,6 +56,10 @@ function isActive($path, $currentPath) {
             <li class="menu-item">
                 <a href="/reportes" class="menu-link <?= isActive('/reportes', $currentPath) ?>">Reportes</a>
             </li>
+
+            <li class="menu-item">
+                <a href="/calendario" class="menu-link <?= isActive('/calendario', $currentPath) ?>">Calendario</a>
+            </li>
         </ul>
 
         <?php if (RoleMiddleware::can('usuarios.view')): ?>
