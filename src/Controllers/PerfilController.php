@@ -8,16 +8,19 @@ use App\Core\Response;
 use App\Core\TenantContext;
 use App\Core\Validator;
 use App\Models\Usuario;
+use App\Repositories\UsuarioRepository;
 use App\Services\AuditService;
 
 class PerfilController extends Controller
 {
     private AuditService $auditService;
+    private UsuarioRepository $usuarioRepo;
 
     public function __construct()
     {
         parent::__construct();
         $this->auditService = new AuditService();
+        $this->usuarioRepo = new UsuarioRepository();
     }
 
     public function index(Request $request, Response $response): void
