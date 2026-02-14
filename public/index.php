@@ -65,6 +65,7 @@ $router->get('/login', [AuthController::class, 'showLogin']);
 $router->post('/login', [AuthController::class, 'login'], [CsrfMiddleware::class, RateLimitMiddleware::class]);
 
 $router->get('/logout', [AuthController::class, 'logout']);
+$router->get('/cambiar-password', [AuthController::class, 'showCambiarPassword']);
 
 // Dashboard
 $router->get('/dashboard', [DashboardController::class, 'index'], [AuthMiddleware::class, TenantMiddleware::class]);
