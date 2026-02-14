@@ -75,7 +75,7 @@ class RateLimitMiddleware
 
     private function incrementAttempts(string $key): void
     {
-        $expiresAt = date('Y-m-d H:i:s', strtotime("+{$this->decayMinutes} minutes"));
+        $expiresAt = date('Y-m-d H:i:s', strtotime("+{$this->decaySeconds} seconds"));
 
         $sql = "INSERT INTO rate_limits (rate_key, attempts, last_attempt, expires_at)
                 VALUES (:key, 1, NOW(), :expires_at)
