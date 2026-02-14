@@ -435,7 +435,8 @@ class UsuarioController extends Controller
         $nuevaPassword = $this->generarPasswordAleatoria(12);
         $passwordHash = password_hash($nuevaPassword, PASSWORD_ARGON2ID);
 
-        $result = $this->usuarioRepo->updatePassword((int)$id, $passwordHash);
+        // Actualizar password y marcar que debe cambiarla
+        $result = $this->usuarioRepo->updatePasswordWithFlag((int)$id, $passwordHash);
 
         if (!$result) {
             $this->auditService->log('RESET_PASSWORD_ERROR', 'usuarios', (int)$id, null, ['error' => 'Error al actualizar password']);
