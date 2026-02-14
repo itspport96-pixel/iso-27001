@@ -105,7 +105,7 @@ $router->post('/requerimientos/{id}/update', [RequerimientoController::class, 'u
 $router->get('/perfil', [PerfilController::class, 'index'], [AuthMiddleware::class, TenantMiddleware::class]);
 $router->post('/perfil/update-datos', [PerfilController::class, 'updateDatos'], [CsrfMiddleware::class, AuthMiddleware::class, TenantMiddleware::class]);
 $router->post('/perfil/update-password', [PerfilController::class, 'updatePassword'], [CsrfMiddleware::class, AuthMiddleware::class, TenantMiddleware::class]);
-$router->post('/perfil/cambiar-password-obligatorio', [PerfilController::class, 'cambiarPasswordObligatorio'], [CsrfMiddleware::class, AuthMiddleware::class, TenantMiddleware::class]);
+$router->post('/perfil/cambiar-password-obligatorio', [PerfilController::class, 'cambiarPasswordObligatorio'], [CsrfMiddleware::class]);
 
 // Rutas de Usuarios
 $router->get('/usuarios', [UsuarioController::class, 'index'], [AuthMiddleware::class, TenantMiddleware::class]);
