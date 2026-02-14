@@ -151,7 +151,7 @@ $csrfToken = CsrfMiddleware::getToken();
         
         <h1>Cambio de Contrasena Obligatorio</h1>
         <p class="subtitle">
-            Tu contrasena fue reseteada por el administrador.<br>
+            Tu contrasena fue reseteada o ha expirado.<br>
             Debes crear una nueva contrasena para continuar.
         </p>
         
@@ -163,12 +163,23 @@ $csrfToken = CsrfMiddleware::getToken();
             <div class="form-group">
                 <label for="password_nueva">Nueva Contrasena</label>
                 <input type="password" id="password_nueva" name="password_nueva" required minlength="8" placeholder="Ingresa tu nueva contrasena">
-                <p class="requirements">Minimo 8 caracteres</p>
             </div>
             
             <div class="form-group">
                 <label for="password_confirmar">Confirmar Contrasena</label>
                 <input type="password" id="password_confirmar" name="password_confirmar" required minlength="8" placeholder="Repite la contrasena">
+            </div>
+            
+            <div class="requirements" style="background: #f8f9fa; padding: 12px; border-radius: 6px; margin-bottom: 20px; font-size: 0.8rem; color: #666;">
+                <strong>Requisitos de la contrasena:</strong>
+                <ul style="margin: 8px 0 0 20px; padding: 0;">
+                    <li>Minimo 8 caracteres</li>
+                    <li>Al menos una mayuscula (A-Z)</li>
+                    <li>Al menos una minuscula (a-z)</li>
+                    <li>Al menos un numero (0-9)</li>
+                    <li>Al menos un caracter especial (!@#$%...)</li>
+                    <li>No puede ser igual a las ultimas 5 contrasenas</li>
+                </ul>
             </div>
             
             <button type="submit" id="btnSubmit">Cambiar Contrasena</button>
