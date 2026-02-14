@@ -148,4 +148,25 @@ class AuthController extends Controller
         
         $this->redirect('/login');
     }
+
+    public function showCambiarPassword(Request $request, Response $response): void
+    {
+        $this->request = $request;
+        $this->response = $response;
+        
+        // Verificar que el usuario este autenticado
+        if (!$this->isAuthenticated()) {
+            $this->redirect('/login');
+            return;
+        }
+        
+        // Verificar que realmente deba cambiar password
+        $debeCambiarPassword = $this->session->get('debe_cambiar_password', false);
+        if (!$debeCambiarPassword) {
+            $this->redirect('/dashboard');
+            return;
+        }
+        
+        $this->view('auth/cambiar_password_obligatorio');
+    }
 }
