@@ -170,7 +170,10 @@ class EvidenciaController extends Controller
                     ]
                 );
 
-                $this->session->flash('success', 'Evidencia subida exitosamente');
+                // Notificar a validadores sobre nueva evidencia
+                $this->workflowService->notificarNuevaEvidencia($empresaId, $evidenciaId);
+
+                $this->session->flash('success', 'Evidencia subida exitosamente. Los validadores han sido notificados.');
                 $response->redirect('/evidencias');
             } else {
                 $this->session->flash('error', 'Error al guardar evidencia');
