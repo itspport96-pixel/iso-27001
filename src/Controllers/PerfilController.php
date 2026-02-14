@@ -177,4 +177,64 @@ class PerfilController extends Controller
             $this->json(['success' => false, 'error' => 'Error al actualizar contraseña'], 500);
         }
     }
+
+    public function cambiarPasswordObligatorio(Request $request, Response $response): void
+    {
+        $this->request = $request;
+        $this->response = $response;
+        $this->requireAuth();
+
+        $userId = $this->user()['id'];
+        $empresaId = $this->user()['empresa_id'];
+        TenantContext::getInstance()->setTenant($empresaId);
+
+        $validator = new Validator($request->all());
+
+        $rules = [
+            'password_nueva' => 'required|min:8',
+            'password_confirmar' => 'required'
+        ];
+
+        if (!$validator->validate($rules)) {
+            $this->json(['success' => false, 'errors' => $validator->errors()], 400);
+            return;
+        }
+
+        if ($request->post('password_nueva') !== $request->post('password_confirmar')) {
+            $this->json(['success' => false, 'error' => 'Las contraseñas no coinciden'], 400);
+            return;
+        }
+
+        $usuarioModel = new Usuario();
+        $usuario = $usuarioModel->find($userId);
+
+        if (!$usuario) {
+            $this->json(['success' => false, 'error' => 'Usuario no encontrado'], 404);
+            return;
+        }
+
+        $nuevaPasswordHash = password_hash($request->post('password_nueva'), PASSWORD_ARGON2ID);
+
+        $result = $usuarioModel->update($userId, [
+            'password_hash' => $nuevaPasswordHash
+        ]);
+
+        if ($result) {
+            // Quitar el flag de debe cambiar password
+            $this->usuarioRepo->clearPasswordFlag($userId);
+            $this->session->set('debe_cambiar_password', false);
+
+            $this->auditService->log(
+                'UPDATE',
+                'usuarios',
+                $userId,
+                ['accion' => 'cambio_password_obligatorio'],
+                ['accion' => 'password_actualizado_post_reset']
+            );
+
+            $this->json(['success' => true, 'message' => 'Contraseña actualizada correctamente', 'redirect' => '/dashboard']);
+        } else {
+            $this->json(['success' => false, 'error' => 'Error al actualizar contraseña'], 500);
+        }
+    }
 }
