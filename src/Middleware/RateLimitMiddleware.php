@@ -11,13 +11,13 @@ class RateLimitMiddleware
 {
     private PDO $db;
     private int $maxAttempts;
-    private int $decayMinutes;
+    private int $decaySeconds;
 
     public function __construct()
     {
         $this->db = Database::getInstance()->getConnection();
-        $this->maxAttempts = 5;
-        $this->decayMinutes = 15;
+        $this->maxAttempts = 1000;
+        $this->decaySeconds = 30; // 30 segundos en lugar de 0.5 minutos
     }
 
     public function handle(Request $request, Response $response): void
