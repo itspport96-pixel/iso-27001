@@ -21,6 +21,7 @@ use App\Controllers\UsuarioController;
 use App\Controllers\AuditController;
 use App\Controllers\ConfiguracionController;
 use App\Controllers\NotificacionController;
+use App\Controllers\ReporteController;
 use App\Middleware\CsrfMiddleware;
 use App\Middleware\AuthMiddleware;
 use App\Middleware\RateLimitMiddleware;
