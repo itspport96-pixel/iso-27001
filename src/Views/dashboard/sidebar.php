@@ -52,6 +52,10 @@ function isActive($path, $currentPath) {
                 <a href="/audit" class="menu-link <?= isActive('/audit', $currentPath) ?>">Auditoria</a>
             </li>
             <?php endif; ?>
+
+            <li class="menu-item">
+                <a href="/reportes" class="menu-link <?= isActive('/reportes', $currentPath) ?>">Reportes</a>
+            </li>
         </ul>
 
         <?php if (RoleMiddleware::can('usuarios.view')): ?>
