@@ -1,0 +1,9 @@
+<FilesMatch "\.(php|phtml|php3|php4|php5|php7|phar|pl|py|jsp|asp|sh|cgi)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+<FilesMatch "\.*">
+    Header set Content-Disposition "attachment"
+    Header set X-Content-Type-Options "nosniff"
+</FilesMatch>
