@@ -184,13 +184,18 @@ class AuthService
             $this->session->set('empresa_id',       $usuario['empresa_id']);
             $this->session->set('empresa_nombre',   $usuario['empresa_nombre']);
             $this->session->set('last_activity',    time());
+            
+            // Verificar si debe cambiar contraseña
+            $debeCambiarPassword = isset($usuario['debe_cambiar_password']) && $usuario['debe_cambiar_password'] == 1;
+            $this->session->set('debe_cambiar_password', $debeCambiarPassword);
 
             $this->log->info('Login exitoso', [
                 'usuario_id' => $usuario['id'],
                 'empresa_id' => $usuario['empresa_id'],
+                'debe_cambiar_password' => $debeCambiarPassword,
             ]);
 
-            return ['success' => true];
+            return ['success' => true, 'debe_cambiar_password' => $debeCambiarPassword];
 
         } catch (\Exception $e) {
             $this->log->error('Error en login', ['error' => $e->getMessage()]);
