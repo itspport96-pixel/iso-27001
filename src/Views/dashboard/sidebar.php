@@ -73,6 +73,9 @@ function isActive($path, $currentPath) {
             <li class="menu-item">
                 <a href="/configuracion" class="menu-link <?= isActive('/configuracion', $currentPath) ?>">Configuracion</a>
             </li>
+            <li class="menu-item">
+                <a href="/notificaciones" class="menu-link <?= isActive('/notificaciones', $currentPath) ?>">Notificaciones</a>
+            </li>
             <?php endif; ?>
         </ul>
     </nav>
