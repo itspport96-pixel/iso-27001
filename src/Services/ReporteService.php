@@ -424,7 +424,7 @@ class ReporteService
         </html>';
     }
 
-    private function getEstadoClass(string $estado = null): string
+    private function getEstadoClass(?string $estado = null): string
     {
         return match($estado) {
             'implementado' => 'estado-implementado',
@@ -434,7 +434,7 @@ class ReporteService
         };
     }
 
-    private function getPrioridadClass(string $prioridad = null): string
+    private function getPrioridadClass(?string $prioridad = null): string
     {
         return match(strtolower($prioridad ?? '')) {
             'alta' => 'prioridad-alta',
