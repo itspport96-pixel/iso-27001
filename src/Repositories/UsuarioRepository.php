@@ -259,14 +259,13 @@ class UsuarioRepository extends Repository
             ':password_hash' => $passwordHash
         ];
         
-        if ($this->usesTenant) {
-            $tenantId = TenantContext::getInstance()->getTenant();
-            $sql .= " AND empresa_id = :empresa_id";
-            $params[':empresa_id'] = $tenantId;
-        }
+        // NO usar tenant para reset de password - el admin puede resetear cualquier usuario de su empresa
+        // El tenant ya se valida en el controller
         
         $stmt = $this->db->prepare($sql);
-        return $stmt->execute($params);
+        $stmt->execute($params);
+        
+        return $stmt->rowCount() > 0;
     }
 
     public function updateEstado(int $id, string $estado): bool
