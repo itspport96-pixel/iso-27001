@@ -187,14 +187,34 @@ class AuthService
             $this->session->set('empresa_nombre',   $usuario['empresa_nombre']);
             $this->session->set('last_activity',    time());
             
-            // Verificar si debe cambiar contraseña
+            // Verificar si debe cambiar contraseña (flag manual o expiración)
             $debeCambiarPassword = isset($usuario['debe_cambiar_password']) && $usuario['debe_cambiar_password'] == 1;
+            
+            // Verificar expiración de contraseña
+            $passwordExpired = $this->passwordPolicy->isPasswordExpired($usuario['password_updated_at'] ?? null);
+            if ($passwordExpired) {
+                $debeCambiarPassword = true;
+            }
+            
             $this->session->set('debe_cambiar_password', $debeCambiarPassword);
+            
+            // Verificar si debe advertir sobre expiración próxima
+            $passwordWarning = false;
+            $daysUntilExpiration = 0;
+            if (!$debeCambiarPassword) {
+                $passwordWarning = $this->passwordPolicy->shouldWarnExpiration($usuario['password_updated_at'] ?? null);
+                if ($passwordWarning) {
+                    $daysUntilExpiration = $this->passwordPolicy->getDaysUntilExpiration($usuario['password_updated_at'] ?? null);
+                }
+            }
+            $this->session->set('password_expiration_warning', $passwordWarning);
+            $this->session->set('password_days_remaining', $daysUntilExpiration);
 
             $this->log->info('Login exitoso', [
                 'usuario_id' => $usuario['id'],
                 'empresa_id' => $usuario['empresa_id'],
                 'debe_cambiar_password' => $debeCambiarPassword,
+                'password_expired' => $passwordExpired,
             ]);
 
             return ['success' => true, 'debe_cambiar_password' => $debeCambiarPassword];
