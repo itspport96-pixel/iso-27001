@@ -93,6 +93,31 @@ abstract class Controller
             $this->redirect('/login');
             exit;
         }
+        
+        // Verificar si debe cambiar password
+        $debeCambiarPassword = $this->session->get('debe_cambiar_password', false);
+        $currentUri = $_SERVER['REQUEST_URI'] ?? '';
+        $currentUri = strtok($currentUri, '?');
+        
+        // Permitir solo logout y la ruta de cambio de password obligatorio
+        $allowedRoutes = ['/logout', '/perfil/cambiar-password-obligatorio'];
+        
+        if ($debeCambiarPassword && !in_array($currentUri, $allowedRoutes)) {
+            // Si es una peticion AJAX, devolver JSON
+            if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && 
+                strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') {
+                $this->response->json([
+                    'success' => false, 
+                    'error' => 'Debes cambiar tu contrasena',
+                    'debe_cambiar_password' => true
+                ], 403);
+                exit;
+            }
+            
+            // Si es peticion normal, redirigir a pagina especial
+            $this->redirect('/cambiar-password');
+            exit;
+        }
     }
 
     protected function requireRole(string $role): void
