@@ -12,11 +12,13 @@ class AuthService
 {
     private Session $session;
     private LogService $log;
+    private PasswordPolicyService $passwordPolicy;
 
     public function __construct()
     {
         $this->session = new Session();
         $this->log     = new LogService();
+        $this->passwordPolicy = new PasswordPolicyService();
     }
 
     public function register(array $empresaData, array $usuarioData): array
