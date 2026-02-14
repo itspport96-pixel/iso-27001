@@ -11,6 +11,7 @@ use App\Repositories\EvidenciaRepository;
 use App\Repositories\ControlRepository;
 use App\Repositories\RequerimientoRepository;
 use App\Services\AuditService;
+use App\Services\WorkflowService;
 use App\Models\Evidencia;
 use App\Services\FileService;
 use App\Middleware\RoleMiddleware;
@@ -22,6 +23,7 @@ class EvidenciaController extends Controller
     private RequerimientoRepository $requerimientoRepo;
     private FileService $fileService;
     private AuditService $auditService;
+    private WorkflowService $workflowService;
 
     public function __construct()
     {
@@ -31,6 +33,7 @@ class EvidenciaController extends Controller
         $this->requerimientoRepo = new RequerimientoRepository();
         $this->fileService       = new FileService();
         $this->auditService      = new AuditService();
+        $this->workflowService   = new WorkflowService();
     }
 
     public function index(Request $request, Response $response): void
