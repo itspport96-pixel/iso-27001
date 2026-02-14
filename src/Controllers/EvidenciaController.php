@@ -309,6 +309,24 @@ class EvidenciaController extends Controller
 
             $db->commit();
 
+            // Registrar en historial de workflow
+            $this->workflowService->registrarCambioEstado(
+                'evidencias',
+                (int)$id,
+                $evidenciaAnterior['estado_validacion'],
+                $estado,
+                $userId,
+                $comentarios
+            );
+
+            // Notificar al usuario que subió la evidencia
+            $this->workflowService->notificarCambioEstadoEvidencia(
+                $empresaId,
+                (int)$id,
+                $estado,
+                $comentarios
+            );
+
             $this->auditService->log(
                 'UPDATE',
                 'evidencias',
