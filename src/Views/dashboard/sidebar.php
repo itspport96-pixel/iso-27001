@@ -54,10 +54,6 @@ function isActive($path, $currentPath) {
             <?php endif; ?>
 
             <li class="menu-item">
-                <a href="/reportes" class="menu-link <?= isActive('/reportes', $currentPath) ?>">Reportes</a>
-            </li>
-
-            <li class="menu-item">
                 <a href="/calendario" class="menu-link <?= isActive('/calendario', $currentPath) ?>">Calendario</a>
             </li>
         </ul>

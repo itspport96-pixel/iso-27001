@@ -21,7 +21,6 @@ use App\Controllers\UsuarioController;
 use App\Controllers\AuditController;
 use App\Controllers\ConfiguracionController;
 use App\Controllers\NotificacionController;
-use App\Controllers\ReporteController;
 use App\Controllers\CalendarioController;
 use App\Middleware\CsrfMiddleware;
 use App\Middleware\AuthMiddleware;
@@ -138,15 +137,6 @@ $router->get('/notificaciones/resumen', [NotificacionController::class, 'getResu
 $router->post('/notificaciones/enviar', [NotificacionController::class, 'enviar'], [CsrfMiddleware::class, AuthMiddleware::class, TenantMiddleware::class]);
 $router->get('/notificaciones/historial', [NotificacionController::class, 'getHistorial'], [AuthMiddleware::class, TenantMiddleware::class]);
 
-// Rutas de Reportes
-$router->get('/reportes', [ReporteController::class, 'index'], [AuthMiddleware::class, TenantMiddleware::class]);
-$router->get('/reportes/preview', [ReporteController::class, 'vistaPrevia'], [AuthMiddleware::class, TenantMiddleware::class]);
-$router->get('/reportes/descargar/soa', [ReporteController::class, 'descargarSOA'], [AuthMiddleware::class, TenantMiddleware::class]);
-$router->get('/reportes/descargar/gaps', [ReporteController::class, 'descargarGAPs'], [AuthMiddleware::class, TenantMiddleware::class]);
-$router->get('/reportes/descargar/ejecutivo', [ReporteController::class, 'descargarEjecutivo'], [AuthMiddleware::class, TenantMiddleware::class]);
-$router->get('/reportes/exportar/soa', [ReporteController::class, 'exportarSOAExcel'], [AuthMiddleware::class, TenantMiddleware::class]);
-$router->get('/reportes/exportar/gaps', [ReporteController::class, 'exportarGAPsExcel'], [AuthMiddleware::class, TenantMiddleware::class]);
-$router->get('/reportes/exportar/evidencias', [ReporteController::class, 'exportarEvidenciasExcel'], [AuthMiddleware::class, TenantMiddleware::class]);
 
 // Rutas de Calendario
 $router->get('/calendario', [CalendarioController::class, 'index'], [AuthMiddleware::class, TenantMiddleware::class]);

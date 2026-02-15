@@ -16,8 +16,8 @@ class RateLimitMiddleware
     public function __construct()
     {
         $this->db = Database::getInstance()->getConnection();
-        $this->maxAttempts = 1000;
-        $this->decaySeconds = 30; // 30 segundos en lugar de 0.5 minutos
+        $this->maxAttempts = 3;
+        $this->decaySeconds = 15; // 30 segundos
     }
 
     public function handle(Request $request, Response $response): void

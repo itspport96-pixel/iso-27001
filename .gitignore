@@ -16,6 +16,9 @@ node_modules/
 !.yarn/releases
 !.yarn/versions
 
+#dir_useless
+storage
+
 # Testing
 /coverage
 
