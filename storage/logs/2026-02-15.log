@@ -1,0 +1,32 @@
+[2026-02-15 00:04:45] [info] Request received {"method":"POST","uri":"\/calendario\/auditoria","ip":"192.168.10.1"}
+[2026-02-15 00:04:47] [info] Request received {"method":"POST","uri":"\/calendario\/auditoria","ip":"192.168.10.1"}
+[2026-02-15 00:04:49] [info] Request received {"method":"GET","uri":"\/calendario","ip":"192.168.10.1"}
+[2026-02-15 00:04:49] [info] Request received {"method":"GET","uri":"\/calendario\/eventos","ip":"192.168.10.1"}
+[2026-02-15 00:04:49] [info] Request received {"method":"GET","uri":"\/favicon.ico","ip":"192.168.10.1"}
+[2026-02-15 00:05:27] [info] Request received {"method":"POST","uri":"\/calendario\/auditoria","ip":"192.168.10.1"}
+[2026-02-15 00:08:08] [info] Request received {"method":"GET","uri":"\/calendario","ip":"192.168.10.1"}
+[2026-02-15 00:08:08] [info] Request received {"method":"GET","uri":"\/favicon.ico","ip":"192.168.10.1"}
+[2026-02-15 00:08:08] [info] Request received {"method":"GET","uri":"\/calendario\/eventos","ip":"192.168.10.1"}
+[2026-02-15 00:08:09] [info] Request received {"method":"GET","uri":"\/dashboard","ip":"192.168.10.1"}
+[2026-02-15 00:08:12] [info] Request received {"method":"GET","uri":"\/notificaciones","ip":"192.168.10.1"}
+[2026-02-15 00:15:28] [info] Request received {"method":"GET","uri":"\/notificaciones","ip":"192.168.10.1"}
+[2026-02-15 00:15:28] [info] Request received {"method":"GET","uri":"\/notificaciones\/resumen","ip":"192.168.10.1"}
+[2026-02-15 00:15:28] [info] Request received {"method":"GET","uri":"\/favicon.ico","ip":"192.168.10.1"}
+[2026-02-15 00:15:32] [info] Request received {"method":"POST","uri":"\/notificaciones\/enviar","ip":"192.168.10.1"}
+[2026-02-15 00:15:58] [info] Request received {"method":"POST","uri":"\/notificaciones\/enviar","ip":"192.168.10.1"}
+[2026-02-15 00:17:28] [info] Request received {"method":"GET","uri":"\/dashboard","ip":"192.168.10.1"}
+[2026-02-15 00:17:28] [info] Request received {"method":"GET","uri":"\/favicon.ico","ip":"192.168.10.1"}
+[2026-02-15 00:17:31] [info] Request received {"method":"GET","uri":"\/calendario","ip":"192.168.10.1"}
+[2026-02-15 00:17:31] [info] Request received {"method":"GET","uri":"\/calendario\/eventos","ip":"192.168.10.1"}
+[2026-02-15 00:18:03] [info] Request received {"method":"POST","uri":"\/calendario\/auditoria","ip":"192.168.10.1"}
+[2026-02-15 00:18:04] [info] Request received {"method":"GET","uri":"\/calendario\/eventos","ip":"192.168.10.1"}
+[2026-02-15 00:18:15] [info] Request received {"method":"GET","uri":"\/dashboard","ip":"192.168.10.1"}
+[2026-02-15 00:20:43] [info] Request received {"method":"GET","uri":"\/dashboard","ip":"192.168.10.1"}
+[2026-02-15 00:20:48] [info] Request received {"method":"GET","uri":"\/notificaciones","ip":"192.168.10.1"}
+[2026-02-15 00:20:48] [info] Request received {"method":"GET","uri":"\/notificaciones\/resumen","ip":"192.168.10.1"}
+[2026-02-15 00:20:50] [info] Request received {"method":"POST","uri":"\/notificaciones\/enviar","ip":"192.168.10.1"}
+[2026-02-15 00:21:05] [info] Notificaciones enviadas {"empresa_id":1,"resultados":{"acciones":{"enviados":1,"errores":0,"detalle":[]},"evidencias":{"enviados":4,"errores":0,"detalle":[]},"timestamp":"2026-02-15 00:21:05"}}
+[2026-02-15 00:22:05] [info] Request received {"method":"GET","uri":"\/notificaciones","ip":"192.168.10.1"}
+[2026-02-15 00:22:05] [info] Request received {"method":"GET","uri":"\/notificaciones\/resumen","ip":"192.168.10.1"}
+[2026-02-15 00:22:06] [info] Request received {"method":"POST","uri":"\/notificaciones\/enviar","ip":"192.168.10.1"}
+[2026-02-15 00:22:15] [info] Notificaciones enviadas {"empresa_id":1,"resultados":{"acciones":{"enviados":1,"errores":0,"detalle":[]},"evidencias":{"enviados":4,"errores":0,"detalle":[]},"timestamp":"2026-02-15 00:22:15"}}

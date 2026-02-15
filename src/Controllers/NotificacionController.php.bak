@@ -31,7 +31,7 @@ class NotificacionController extends Controller
         $this->response = $response;
         $this->requireAuth();
 
-        if (!RoleMiddleware::can('notificaciones.view')) {
+        if (!RoleMiddleware::can('configuracion.view')) {
             $this->json(['success' => false, 'error' => 'Acceso denegado'], 403);
             return;
         }
@@ -82,7 +82,7 @@ class NotificacionController extends Controller
         $this->response = $response;
         $this->requireAuth();
 
-        if (!RoleMiddleware::can('notificaciones.send')) {
+        if (!RoleMiddleware::can('configuracion.edit')) {
             $this->json(['success' => false, 'error' => 'Acceso denegado'], 403);
             return;
         }
@@ -144,7 +144,7 @@ class NotificacionController extends Controller
 
         // Obtener del log de auditoría las últimas notificaciones enviadas
         $sql = "SELECT created_at, new_data 
-                FROM audit_logs 
+                FROM audit_log 
                 WHERE empresa_id = :empresa_id 
                 AND tabla = 'notificaciones'
                 AND accion = 'NOTIFICACION'
